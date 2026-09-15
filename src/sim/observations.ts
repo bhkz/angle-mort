@@ -9,7 +9,7 @@ function value(state: EtatReel, s: Scenario, property: ProprieteObservee): Valeu
     case 'equipement': return requireValue(state.equipements[property.id], 'Equipement inconnu').etat;
     case 'robot': {
       const robot = requireValue(state.robots[property.id], 'Robot inconnu');
-      return property.champ === 'sommet' ? robot.sommet : property.champ === 'energie' ? robot.energie : cargo(state, property.id);
+      return property.champ === 'sommet' ? robot.sommet : property.champ === 'energie' ? robot.energie : property.champ === 'activite' ? robot.activite : cargo(state, property.id);
     }
     case 'colis': return requireValue(state.colis[property.id], 'Colis inconnu').localisation;
     case 'service': return operational(s, state, property.id);

@@ -12,8 +12,11 @@ export interface QuayView {
   setFraming(frame: 'quai' | 'coursive'): void;
   setZoom(zoom: number): void;
   setCutaway(enabled: boolean): void;
+  setSelection(selection: QuaySelection | null): void;
+  anchorFor(selection: QuaySelection): { x: number; y: number } | undefined;
   dispose(): void;
 }
+export interface QuaySelection { readonly type: 'robot' | 'sommet' | 'equipement' | 'colis'; readonly id: string }
 
 /** Receives only player data. No simulation instance, state reader, orders or clock callbacks. */
 export function createQuayView(host: HTMLElement, initial: VueJoueur): QuayView {
@@ -35,6 +38,9 @@ export function createQuayView(host: HTMLElement, initial: VueJoueur): QuayView 
   const palette = new Map<string, THREE.MeshStandardMaterial>();
   const textures = new Set<THREE.Texture>();
   const labels: { element: HTMLElement; point: THREE.Vector3 }[] = [];
+  const transientLabels: { element: HTMLElement; point: THREE.Vector3 }[] = [];
+  const picks: THREE.Object3D[] = [];
+  let selected: QuaySelection | null = null; let animation = 0;
   let current = initial; let framing: 'quai' | 'coursive' = 'quai'; let zoom = 1; let cutaway = false;
 
   function material(color: number, ghost = false, emissive = false) {
@@ -88,6 +94,23 @@ export function createQuayView(host: HTMLElement, initial: VueJoueur): QuayView 
   function htmlLabel(text: string, point: THREE.Vector3, className: string) {
     const element = document.createElement('div'); element.className = `scene-label ${className}`; element.textContent = text; host.append(element); labels.push({ element, point }); return element;
   }
+  function select(selection: QuaySelection) { host.dispatchEvent(new CustomEvent<QuaySelection>('quay-select', { detail: selection })); }
+  function targetLabel(text: string, point: THREE.Vector3, selection: QuaySelection, transient = false) {
+    const element = document.createElement('button'); element.type = 'button'; element.className = `scene-label object-target ${selection.type}-target`;
+    element.textContent = text; element.dataset.object = `${selection.type}:${selection.id}`;
+    element.setAttribute('aria-label', selection.type === 'robot' ? `Sélectionner ${text}` : text);
+    element.onclick = () => select(selection); host.append(element); (transient ? transientLabels : labels).push({ element, point }); return element;
+  }
+  const pick = (event: MouseEvent) => {
+    const rect = renderer.domElement.getBoundingClientRect(); const ray = new THREE.Raycaster();
+    ray.setFromCamera(new THREE.Vector2((event.clientX - rect.left) / rect.width * 2 - 1, -(event.clientY - rect.top) / rect.height * 2 + 1), camera);
+    for (const hit of ray.intersectObjects([...picks, dynamic], true)) {
+      let object: THREE.Object3D | null = hit.object;
+      while (object && !object.userData.selection) object = object.parent;
+      if (object?.userData.selection) { select(object.userData.selection as QuaySelection); return; }
+    }
+  };
+  renderer.domElement.addEventListener('click', pick);
 
   // Static known architecture. Scenery crates are decor, never simulated parcels or stock indicators.
   scene.add(new THREE.HemisphereLight(0xb7d9f0, 0x16232a, 2.4));
@@ -125,7 +148,8 @@ export function createQuayView(host: HTMLElement, initial: VueJoueur): QuayView 
   box(scene, [4.9, 0.2, 3.9], [-9.5, 3.5, -8.8], C.steel);
   sign(scene, 'DEPOT', 3.1, [-9.5, 2.6, -6.98]); lamp(-10.7, 2.9, -6.8);
   box(scene, [2.3, 2.05, 0.04], [-9.5, 0.92, -6.97], C.dark);
-  box(scene, [3, 3.1, 3.2], [10.6, 1.45, 0.9], 0x465153);
+  const workshop = box(scene, [3, 3.1, 3.2], [10.6, 1.45, 0.9], 0x465153);
+  workshop.userData.selection = { type: 'sommet', id: 'Q' }; picks.push(workshop);
   box(scene, [3.2, 0.17, 3.5], [10.6, 3.1, 0.9], C.steel);
   sign(scene, 'ATELIER', 2.7, [10.6, 2.3, 2.53]); lamp(10.6, 2.7, 2.7);
   for (let i = 0; i < 9; i++) {
@@ -178,17 +202,23 @@ export function createQuayView(host: HTMLElement, initial: VueJoueur): QuayView 
   for (const v of current.geometrie.sommets) {
     const point = vec(v.position); const ring = new THREE.Mesh(new THREE.RingGeometry(0.23, 0.3, 24), new THREE.MeshBasicMaterial({ color: C.pale, transparent: true, opacity: 0.42, side: THREE.DoubleSide }));
     ring.rotation.x = -Math.PI / 2; ring.position.copy(point).add(new THREE.Vector3(0, 0.13, 0)); scene.add(ring);
-    htmlLabel(v.id, point.clone().add(new THREE.Vector3(0, 0.3, 0)), 'node-label');
+    const names: Record<string, string> = { Q: 'Atelier', F: 'Infirmerie', O: 'Dépôt', T: 'Transfert', C: 'Coursive', P: 'Pompe' };
+    targetLabel(names[v.id] ?? v.id, point.clone().add(new THREE.Vector3(0, v.id === 'Q' ? 1.6 : 0.3, v.id === 'P' ? 1 : 0)), { type: 'sommet', id: v.id });
   }
   const doorLabel = htmlLabel('', gate.clone().add(new THREE.Vector3(0.2, 4.1, 0)), 'equipment-label door-label'); doorLabel.dataset.testid = 'door-label';
   const bridgeLabel = htmlLabel('', p.clone().add(gate).multiplyScalar(0.5).add(new THREE.Vector3(0, 0.6, 0.4)), 'equipment-label bridge-label');
   const sourceLabel = htmlLabel('C · OBSERVATION EN HAUTEUR', c.clone().add(new THREE.Vector3(0.2, 1.25, 0)), 'source-label'); sourceLabel.dataset.testid = 'coursive-label';
 
   function clearDynamic() {
-    dynamic.traverse(object => { if (object instanceof THREE.Mesh) object.geometry.dispose(); }); dynamic.clear();
+    cancelAnimationFrame(animation); animation = 0; host.dataset.animating = 'false';
+    transientLabels.forEach(l => l.element.remove()); transientLabels.length = 0;
+    dynamic.traverse(object => { if (object instanceof THREE.Mesh) object.geometry.dispose(); if (object instanceof THREE.Line) { object.geometry.dispose(); const mats = Array.isArray(object.material) ? object.material : [object.material]; mats.forEach(m => m.dispose()); } }); dynamic.clear();
   }
   function robot(id: string, position: THREE.Vector3, dated: boolean, cargoCount: number) {
     const group = new THREE.Group(); group.position.copy(position); group.name = `robot:${id}:${dated ? 'dated' : 'current'}`; dynamic.add(group);
+    group.userData.selection = { type: 'robot', id }; group.userData.current = !dated;
+    const label = targetLabel(id === 'R' ? 'R1' : id, position.clone().add(new THREE.Vector3(0, 1.8, 0)), { type: 'robot', id }, true);
+    label.classList.toggle('dated-object', dated); label.classList.toggle('selected', selected?.type === 'robot' && selected.id === id);
     const color = dated ? C.amber : 0xd4ad58;
     box(group, [0.65, 0.5, 0.95], [0, 0.65, 0], color, dated);
     box(group, [0.52, 0.12, 0.48], [0, 0.98, -0.08], C.steel, dated);
@@ -210,12 +240,14 @@ export function createQuayView(host: HTMLElement, initial: VueJoueur): QuayView 
     doorLabel.classList.toggle('known', door.status === 'current');
     const leaf = box(dynamic, [1.84, 2.2, 0.12], [gate.x, 1.2, gate.z], door.status === 'current' ? C.steel : C.amber, door.status !== 'current');
     leaf.name = `door:${door.status}:${door.value ?? 'unknown'}`;
+    leaf.userData.selection = { type: 'equipement', id: 'porte' };
     if (door.value === 'ouverte') { leaf.rotation.x = -Math.PI / 2; leaf.position.set(gate.x, 2.5, gate.z - 1.05); }
     else if (door.value === null) { leaf.visible = false; } // No invented physical pose for a never-seen door.
     const bridge = equipmentReport(current, 'passerelle');
     bridgeLabel.textContent = bridge.status === 'current' ? `PASSERELLE ${bridge.value === 'relevee' ? 'RELEVÉE' : 'ABAISSÉE'}` : 'PASSERELLE · ÉTAT INCONNU';
     bridgeLabel.dataset.state = bridge.status === 'current' ? bridge.value ?? 'inconnue' : 'inconnue'; bridgeLabel.dataset.testid = 'bridge-label';
     const hinge = new THREE.Group(); hinge.position.copy(gate).add(new THREE.Vector3(0, 0.12, 0)); hinge.name = 'passerelle'; dynamic.add(hinge);
+    hinge.userData.selection = { type: 'equipement', id: 'passerelle' };
     const length = gate.distanceTo(p);
     box(hinge, [length, 0.13, 1], [length / 2, 0, 0], C.pale, bridge.status !== 'current');
     for (const side of [-0.48, 0.48]) box(hinge, [length, 0.06, 0.06], [length / 2, 0.65, side], C.amber, bridge.status !== 'current');
@@ -235,7 +267,16 @@ export function createQuayView(host: HTMLElement, initial: VueJoueur): QuayView 
       const point = node(parcel.location.sommet);
       const mesh = box(dynamic, [0.45, 0.35, 0.4], [point.x + 0.55, point.y + 0.2, point.z], parcel.age > 0 ? C.amber : C.pale, parcel.age > 0);
       mesh.name = `parcel:${parcel.id}:t${parcel.at}`;
+      mesh.userData.selection = { type: 'colis', id: parcel.id };
     }
+    for (const intention of current.apercusTrajet) {
+      const points = intention.intention.chemin.map(id => node(id).add(new THREE.Vector3(0, 0.2, 0)));
+      if (points.length > 1) {
+        const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineDashedMaterial({ color: C.cyan, dashSize: 0.22, gapSize: 0.12, depthTest: false }));
+        line.computeLineDistances(); line.renderOrder = 5; dynamic.add(line);
+      }
+    }
+    for (const label of labels) if (label.element.dataset.object) label.element.classList.toggle('selected', label.element.dataset.object === `${selected?.type}:${selected?.id}`);
     host.dataset.impulsion = String(current.impulsion);
     host.dataset.observedRobots = reports.map(r => `${r.robot}@${r.sommet}:t${r.capture.impulsion}`).sort().join(',');
     render();
@@ -243,32 +284,62 @@ export function createQuayView(host: HTMLElement, initial: VueJoueur): QuayView 
   function render() {
     renderer.render(scene, camera);
     const bounds = host.getBoundingClientRect();
-    for (const label of labels) {
+    for (const label of [...labels, ...transientLabels]) {
       const screen = label.point.clone().project(camera);
       label.element.style.left = `${(screen.x * 0.5 + 0.5) * bounds.width}px`;
       label.element.style.top = `${(-screen.y * 0.5 + 0.5) * bounds.height}px`;
       label.element.hidden = Math.abs(screen.x) > 1 || Math.abs(screen.y) > 1 || screen.z > 1;
     }
+    host.dispatchEvent(new Event('quay-frame'));
   }
   function resize() {
     const { width, height } = host.getBoundingClientRect();
     const ratio = Math.min(1, MAX_WIDTH / Math.max(1, width), MAX_HEIGHT / Math.max(1, height));
     renderer.setSize(Math.max(1, Math.floor(width * ratio)), Math.max(1, Math.floor(height * ratio)), false);
-    const aspect = width / Math.max(1, height); const span = aspect < 1 ? 22 / aspect : 17;
+    const aspect = width / Math.max(1, height); const span = aspect < 0.75 ? 27 : aspect < 1 ? 22 / aspect : 17;
     camera.left = -span * aspect; camera.right = span * aspect; camera.top = span; camera.bottom = -span;
     camera.zoom = zoom;
     camera.position.fromArray(framing === 'quai' ? [-26, 29, 26] : [25, 34, 26]);
-    camera.lookAt(0, 2, -0.5); camera.updateProjectionMatrix(); render();
+    if (aspect < 0.75) camera.lookAt(...(framing === 'quai' ? [3, 1, 2] as [number, number, number] : [-2, 3, -1] as [number, number, number]));
+    else camera.lookAt(0, 2, -0.5);
+    camera.updateProjectionMatrix(); render();
   }
   const observer = new ResizeObserver(resize); observer.observe(host);
   resize(); drawReceived();
   return {
-    update(view) { current = view; drawReceived(); },
+    update(view) {
+      const previous = current; current = view; drawReceived();
+      const moves: { object: THREE.Object3D; from: THREE.Vector3; to: THREE.Vector3 }[] = [];
+      if (previous.impulsion !== view.impulsion && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        for (const object of dynamic.children) if (object.userData.current && object.userData.selection?.type === 'robot') {
+          const old = robotReports(previous).find(r => r.robot === object.userData.selection.id && r.age === 0);
+          if (old) { const from = vec(previous.geometrie.sommets.find(v => v.id === old.sommet)!.position); if (!from.equals(object.position)) moves.push({ object, from, to: object.position.clone() }); }
+        }
+      }
+      if (moves.length) {
+        host.dataset.animating = 'true'; const start = performance.now();
+        const animate = (time: number) => { const fraction = Math.min(1, (time - start) / 450); moves.forEach(m => m.object.position.lerpVectors(m.from, m.to, fraction)); render();
+          if (fraction < 1) animation = requestAnimationFrame(animate); else { animation = 0; host.dataset.animating = 'false'; } };
+        animation = requestAnimationFrame(animate);
+      }
+    },
     setFraming(frame) { framing = frame; resize(); },
     setZoom(value) { zoom = Math.max(0.75, Math.min(1.7, value)); resize(); },
     setCutaway(enabled) { cutaway = enabled; walls.forEach(wall => { wall.visible = !cutaway; }); render(); },
+    setSelection(selection) { selected = selection; drawReceived(); },
+    anchorFor(selection) {
+      let point: THREE.Vector3 | undefined;
+      if (selection.type === 'sommet') point = node(selection.id);
+      else if (selection.type === 'robot') { const r = robotReports(current).find(r => r.robot === selection.id); if (r) point = node(r.sommet).add(new THREE.Vector3(0, 1, 0)); }
+      else if (selection.type === 'equipement') point = node(selection.id === 'porte' ? 'A' : 'P');
+      else { const parcel = parcelReports(current).find(p => p.id === selection.id); if (parcel && parcel.location.type !== 'porte') point = node(parcel.location.sommet); }
+      if (!point) return undefined;
+      point.project(camera); const { width, height } = host.getBoundingClientRect(); return { x: (point.x / 2 + 0.5) * width, y: (-point.y / 2 + 0.5) * height };
+    },
     dispose() {
+      cancelAnimationFrame(animation); renderer.domElement.removeEventListener('click', pick);
       observer.disconnect(); scene.traverse(object => { if (object instanceof THREE.Mesh) { object.geometry.dispose(); const mats = Array.isArray(object.material) ? object.material : [object.material]; mats.forEach(m => m.dispose()); } });
+      dynamic.traverse(object => { if (object instanceof THREE.Line) { object.geometry.dispose(); const mats = Array.isArray(object.material) ? object.material : [object.material]; mats.forEach(m => m.dispose()); } });
       textures.forEach(t => t.dispose()); palette.forEach(m => m.dispose()); renderer.dispose(); host.replaceChildren();
     },
   };

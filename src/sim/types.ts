@@ -106,7 +106,7 @@ export interface ContratMission {
 }
 export type ProprieteObservee =
   | Readonly<{ type: 'equipement'; id: Id; champ: 'etat' }>
-  | Readonly<{ type: 'robot'; id: Id; champ: 'sommet' | 'chargement' | 'energie' }>
+  | Readonly<{ type: 'robot'; id: Id; champ: 'sommet' | 'chargement' | 'energie' | 'activite' }>
   | Readonly<{ type: 'son'; id: Id; champ: 'emission' }>
   | Readonly<{ type: 'colis'; id: Id; champ: 'localisation' }>
   | Readonly<{ type: 'service'; id: Id; champ: 'operationnel' }>

@@ -1,11 +1,14 @@
 import { test, expect, type Page } from '@playwright/test';
 import { createSimulation, createPlayerCatalogue, projectPlayerView, type VueJoueur } from '../src/sim';
 import { quai17 } from '../src/scenarios/quai17';
+import { catalogueSession, jouable } from '../src/scenarios/jouable';
+import { createSessionController } from '../src/session/controller';
 
 async function ready(page: Page) {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/');
   await expect(page.locator('#app')).toHaveAttribute('data-ready', 'true');
+  await page.locator('#scenario-challenge').click();
   await expect(page.locator('#quay')).toHaveAttribute('data-impulsion', '4');
   expect(errors).toEqual([]);
 }
@@ -14,14 +17,16 @@ async function advance(page: Page, pulse: number) {
   await expect(page.locator('#quay')).toHaveAttribute('data-impulsion', String(pulse));
 }
 async function withPlayerPacket(page: Page, view: VueJoueur) {
+  const s = jouable('dernierPassage');
+  const frame = createSessionController(createSimulation(s, 17), catalogueSession(s, 'dernierPassage')).frame();
   await page.addInitScript(packet => {
     class PlayerPacketWorker {
       onmessage: ((event: MessageEvent) => void) | null = null;
-      postMessage() { queueMicrotask(() => this.onmessage?.(new MessageEvent('message', { data: { type: 'view', view: packet } }))); }
+      postMessage() { queueMicrotask(() => this.onmessage?.(new MessageEvent('message', { data: { type: 'view', ...packet } }))); }
       terminate() { /* No simulation capability exists in this presentation fixture. */ }
     }
     window.Worker = PlayerPacketWorker as unknown as typeof Worker;
-  }, view);
+  }, { ...frame, view });
 }
 
 test('capture demandée : porte bloquée réelle, sans C, état affiché inconnu à t4', async ({ page }) => {
@@ -77,6 +82,7 @@ test('les silhouettes datées gardent leur position et leur rendu se distingue d
 
 test('seule l’observation en C révèle la porte à t5 ; les horaires de passerelle viennent du moteur', async ({ page }) => {
   await ready(page);
+  await page.locator('[data-object="sommet:C"]').click();
   await page.getByRole('button', { name: 'Observer depuis C' }).click();
   await expect(page.getByTestId('door-label')).toHaveAttribute('data-state', 'inconnue');
   await advance(page, 5);

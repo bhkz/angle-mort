@@ -1,4 +1,4 @@
-import type { ActionAutorisee, EtatReel, IntentionTrajet, Ordre, Scenario } from './types';
+import type { ActionAutorisee, ContratMission, EtatReel, IntentionTrajet, Ordre, Scenario } from './types';
 import { cargo, compareId, copy, indexById, matches, operational, requireValue, snapshot, type Mutable } from './util';
 import { validateScenario } from './validation';
 import { createRng } from './rng';
@@ -71,6 +71,7 @@ function handling(s: Scenario, state: Mutable<EtatReel>, orders: readonly Ordre[
 export function createSimulation(description: Scenario, seed: number) {
   validateScenario(description);
   const s = copy(description);
+  const delegations = copy(description.missions);
   s.graphe.sommets.sort(compareId); s.graphe.aretes.sort(compareId);
   s.sources.sort(compareId); s.besoins.sort(compareId); s.evenements.sort(compareId);
   const catalogue = createPlayerCatalogue(s);
@@ -94,6 +95,16 @@ export function createSimulation(description: Scenario, seed: number) {
   applyConsequences(s, state); resolveNeeds(s, state); collectObservations(s, state);
 
   return {
+    /** Replace an existing delegated contract; cannot create rights or change its identity/parent. */
+    configureMission(mission: ContratMission): void {
+      const previous = delegations.find(m => m.id === mission.id);
+      if (!previous || mission.parent !== previous.parent) throw new Error('Mission non deleguee');
+      if (mission.acces.some(id => !previous.acces.includes(id) || !s.droits.some(d => d.id === id && d.beneficiaire.type === 'mission' && d.beneficiaire.id === mission.id))) throw new Error('Droit non delegue');
+      if (mission.zone.some(id => !previous.zone.includes(id)) || mission.duree.debutInclus < previous.duree.debutInclus || mission.duree.finIncluse > previous.duree.finIncluse ||
+        mission.ressources.robots.some(id => !previous.ressources.robots.includes(id)) || mission.ressources.colis.some(id => !previous.ressources.colis.includes(id)) || mission.ressources.equipements.some(id => !previous.ressources.equipements.includes(id))) throw new Error('Perimetre non delegue');
+      const missions = s.missions.map(m => m.id === mission.id ? copy(mission) : m);
+      validateScenario({ ...s, missions }); s.missions = missions;
+    },
     /** Replaces pending orders for the specified robots; an omitted robot keeps its pending order. */
     submitOrders(orders: readonly Ordre[]): void {
       if (state.impulsion >= s.fin) throw new Error('Tentative terminee');

@@ -1,5 +1,7 @@
 # Quai 17 — rendu des observations
 
+Mise à jour P6 : l'interface est désormais dans `src/ui/`, avec une entrée en jeu à t0 et le Dernier passage accessible par son bouton. Les événements de sélection, cibles tactiles et animations entre positions observées sont décrits dans [la boucle jouable](../ui/README.md). Les indications ci-dessous décrivent le socle P5 ; son isolation et les règles d'incertitude sont conservées.
+
 ## Frontière de lecture
 
 `createQuayView(element, vueJoueur)` construit la scène. `update(vueJoueur)` la remplace à partir des nouveaux rapports. Le module ne reçoit ni simulation, ni lecteur auteur, ni ordres. Ses seuls imports externes sont Three.js et les **types** de `VueJoueur`. Les données reçues sont gelées dans le contrôleur ; les transformations Three.js utilisent leurs propres vecteurs.

@@ -10,6 +10,8 @@ Suivi P4 : la couche d'observation du §4 et la projection des canaux joueur son
 
 Suivi P5 : le [rendu Three.js du Quai 17](src/view/README.md) consomme uniquement la vue joueur transmise par un worker. La géométrie publique inclut les boîtes d'occlusion statiques. Les tests navigateur vérifient la non-fuite visuelle après cadrage, zoom et coupe, les observations datées et les impulsions de découverte. La capture à t4 est disponible dans `artifacts/quai17-t4.png`.
 
+Suivi P6 : la [boucle jouable](src/ui/README.md) relie cartes, planificateur, observations et moteur. Une entrée en jeu distincte propose une livraison P→Q en une impulsion ; le Dernier passage conserve son checkpoint t4. La préparation est réversible, les missions persistent et la reprise conserve leurs échéances. Les tests couvrent le parcours souris/tactile/clavier et les confirmations issues uniquement des observations.
+
 ## 1. Autorité, périmètre et conventions
 
 Sources actives, avec abréviations utilisées dans ce document :
