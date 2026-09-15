@@ -7,7 +7,7 @@
     "dev": "vite",
     "test": "vitest run",
     "build": "npm run typecheck && vite build",
-    "typecheck": "tsc --noEmit && tsc -p src/sim/tsconfig.json --noEmit"
+    "typecheck": "tsc --noEmit && tsc -p src/sim/tsconfig.json --noEmit && tsc -p src/planner/tsconfig.json --noEmit"
   },
   "dependencies": {
     "three": "^0.186.0"

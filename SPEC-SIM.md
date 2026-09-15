@@ -4,6 +4,8 @@ Statut : **à arbitrer avant implémentation**. Les règles établies ci-dessous
 
 Suivi d'implémentation : la demande suivante porte sur le moteur des sections 1–5 et 7, ainsi que les scores des cinq témoins. Les choix retenus pour ce périmètre et ses limites sont explicités dans [src/sim/README.md](src/sim/README.md). Les autres arbitrages restent ouverts ; la présente spécification conserve leur contexte.
 
+Suivi P3 : le planificateur de transport et les six optima de G §4 sont implémentés. Son domaine fini, ses budgets, le départage, la politique d'incertitude explicitement fournie par l'appelant et les choix relatifs à PT-14 sont documentés dans [src/planner/README.md](src/planner/README.md). Les mécaniques non prises en charge restent signalées comme telles.
+
 ## 1. Autorité, périmètre et conventions
 
 Sources actives, avec abréviations utilisées dans ce document :
