@@ -1,7 +1,15 @@
-import type { ActionAutorisee, Besoin, Colis, Droit, Robot, Scenario } from '../../src/sim';
+import type { ActionAutorisee, Besoin, Colis, Droit, Position3D, Robot, Scenario, VolumeObservation } from '../../src/sim';
 
 const links = [['O', 'T'], ['T', 'G'], ['G', 'A'], ['A', 'P'], ['P', 'Q'], ['T', 'D'], ['D', 'E'], ['E', 'F'], ['F', 'P'], ['T', 'H'], ['H', 'C']] as const;
 const vertices = ['O', 'T', 'G', 'A', 'P', 'Q', 'D', 'E', 'F', 'H', 'C'];
+const positions: Record<string, Position3D> = {
+  O: { x: -4, y: 0, z: -2 }, T: { x: -2, y: 0, z: -2 }, G: { x: 0, y: 0, z: -2 },
+  A: { x: 0, y: 0, z: 2 }, P: { x: 2, y: 0, z: 2 }, Q: { x: 4, y: 0, z: 2 },
+  D: { x: -2, y: 0, z: -4 }, E: { x: 2, y: 0, z: -4 }, F: { x: 2, y: 0, z: -1 },
+  H: { x: -2, y: 1, z: -2 }, C: { x: -2, y: 4, z: 2 },
+};
+const eye: VolumeObservation = { portee: 20, offset: { x: 0, y: 0.6, z: 0 }, direction: { x: 0, y: 0, z: 1 }, angleDeg: 360 };
+const doorAnchor = { x: 0, y: 0.6, z: 2 };
 
 export function dernierPassage(open: boolean, observer: 'H' | 'C' = 'H'): Scenario {
   const robots: Robot[] = [
@@ -33,12 +41,13 @@ export function dernierPassage(open: boolean, observer: 'H' | 'C' = 'H'): Scenar
   return {
     id: 'dernier-passage-checkpoint', version: '1', debut: 4, fin: 16,
     graphe: {
-      sommets: vertices.map((id, x) => ({ id, position: { x, y: id === 'C' || id === 'H' ? 1 : 0, z: 0 }, niveau: id === 'C' || id === 'H' ? 'haut' : 'bas', capaciteRobots: 1,
+      sommets: vertices.map(id => ({ id, position: positions[id]!, niveau: id === 'C' || id === 'H' ? 'haut' : 'bas', capaciteRobots: 1,
         roles: id === 'O' ? ['depot'] : id === 'T' ? ['transfert'] : id === 'P' ? ['reception', 'casier'] : id === 'Q' ? ['reception'] : id === 'C' ? ['observation'] : ['passage'] })),
       aretes: links.map(([a, b]) => ({ id: a + b, extremites: [a, b], duree: 1, bidirectionnelle: true, coutEnergie: 1,
         controlePar: a + b === 'GA' ? ['porte'] : a + b === 'AP' ? ['passerelle'] : [] })),
     },
     robots, colis, droits, besoins, missions: [],
+    obstaclesObservation: [{ id: 'hangar', min: { x: -1, y: -0.1, z: -1.5 }, max: { x: 1, y: 2, z: 0.5 }, actifSi: [] }],
     equipements: [
       { id: 'porte', nature: 'porte', cible: { type: 'arete', id: 'GA' }, etat: open ? 'ouverte' : 'bloquee' },
       { id: 'passerelle', nature: 'passerelle', cible: { type: 'arete', id: 'AP' }, etat: 'abaissee' },
@@ -54,16 +63,19 @@ export function dernierPassage(open: boolean, observer: 'H' | 'C' = 'H'): Scenar
     ],
     sources: [
       ...robots.map(robot => ({
-        id: robot.sourceLocale, support: { type: 'robot' as const, id: robot.id }, equipementsRequis: [], destinataires: ['joueur' as const], origineCommune: null, transmetRefus: true,
+        id: robot.sourceLocale, nature: robot.id === 'R2' ? 'robotEnPoste' as const : 'telemetrie' as const,
+        support: { type: 'robot' as const, id: robot.id }, equipementsRequis: [], destinataires: ['joueur' as const], origineCommune: null, transmetRefus: true,
         couverture: [
           { propriete: { type: 'robot' as const, id: robot.id, champ: 'sommet' as const }, depuis: vertices, posteFixe: false },
           { propriete: { type: 'robot' as const, id: robot.id, champ: 'chargement' as const }, depuis: vertices, posteFixe: false },
-          ...(robot.id === 'R2' ? [{ propriete: { type: 'equipement' as const, id: 'porte', champ: 'etat' as const }, depuis: ['C'], posteFixe: true }] : []),
+          { propriete: { type: 'equipement' as const, id: 'porte', champ: 'etat' as const }, depuis: vertices, posteFixe: robot.id === 'R2',
+            perception: { type: 'vision' as const, volume: eye, ancrage: doorAnchor } },
         ],
       })),
-      { id: 'cameraFixe', support: { type: 'fixe', sommet: 'H' }, equipementsRequis: [{ equipement: 'camera', etat: 'disponible' }],
+      { id: 'cameraFixe', nature: 'cameraFixe', support: { type: 'fixe', sommet: 'H' }, equipementsRequis: [{ equipement: 'camera', etat: 'disponible' }],
         destinataires: ['joueur'], origineCommune: null, transmetRefus: false,
-        couverture: [{ propriete: { type: 'equipement', id: 'porte', champ: 'etat' }, depuis: ['H'], posteFixe: false }] },
+        couverture: [{ propriete: { type: 'equipement', id: 'porte', champ: 'etat' }, depuis: ['H'], posteFixe: false,
+          perception: { type: 'vision', volume: { ...eye, offset: { x: 0, y: 4.6, z: 0 } }, ancrage: doorAnchor } }] },
     ],
     evenements: [
       { id: 'charge-initiale-epuisee', impulsion: 5, type: 'equipement', equipement: 'pompe', etat: 'arretee' },

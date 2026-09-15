@@ -1,4 +1,4 @@
-import type { Cible, ConditionEquipement, EtatEquipement, Equipement, ProprieteObservee, Scenario } from './types';
+import type { Cible, ConditionEquipement, EtatEquipement, Equipement, Position3D, ProprieteObservee, Scenario } from './types';
 
 function check(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`Scenario invalide : ${message}`);
@@ -21,7 +21,7 @@ export function validateScenario(s: Scenario): void {
   const collections = {
     sommet: s.graphe.sommets, arete: s.graphe.aretes, robot: s.robots, colis: s.colis,
     equipement: s.equipements, service: s.services, besoin: s.besoins, droit: s.droits,
-    mission: s.missions, source: s.sources, evenement: s.evenements,
+    mission: s.missions, source: s.sources, evenement: s.evenements, son: s.emissionsSonores ?? [], obstacle: s.obstaclesObservation ?? [],
   };
   const ids = Object.fromEntries(Object.entries(collections).map(([kind, items]) => {
     const set = new Set<string>();
@@ -38,6 +38,7 @@ export function validateScenario(s: Scenario): void {
     check(s.equipements.some(e => e.id === c.equipement && validEquipmentState(e, c.etat)), 'etat incompatible');
   }
   function property(p: ProprieteObservee): void { if (p.type !== 'consequences') ref(p.type, p.id); }
+  function point(p: Position3D): void { check([p.x, p.y, p.z].every(Number.isFinite), 'position finie'); }
   function interval(value: { debutInclus: number; finIncluse: number }): void {
     integer(value.debutInclus, 'debut validite'); integer(value.finIncluse, 'fin validite');
     check(value.debutInclus <= value.finIncluse, 'intervalle validite');
@@ -134,7 +135,43 @@ export function validateScenario(s: Scenario): void {
     if (source.support.type === 'robot') ref('robot', source.support.id); else ref('sommet', source.support.sommet);
     source.equipementsRequis.forEach(condition);
     if (source.origineCommune !== null) ref('source', source.origineCommune);
-    source.couverture.forEach(c => { property(c.propriete); c.depuis.forEach(id => ref('sommet', id)); });
+    if (source.nature === 'cameraFixe' || source.nature === 'microphone' || source.capteurFranchissement) check(source.support.type === 'fixe', 'support fixe du capteur');
+    if (source.nature === 'robotEnPoste') check(source.support.type === 'robot', 'support robot en poste');
+    if (source.nature === 'capteurFranchissement') check(source.capteurFranchissement, 'configuration du capteur');
+    if (source.capteurFranchissement) {
+      check(source.couverture.length === 0, 'le capteur de franchissement ne mesure que les passages');
+      source.capteurFranchissement.aretes.forEach(id => {
+        ref('arete', id);
+        check(source.support.type === 'fixe' && s.graphe.aretes.some(e => e.id === id && source.support.type === 'fixe' && e.extremites.includes(source.support.sommet)), 'capteur au bout de son arete');
+      });
+    }
+    source.couverture.forEach(c => {
+      property(c.propriete); c.depuis.forEach(id => ref('sommet', id));
+      if (source.nature === 'cameraFixe') check(c.perception?.type === 'vision', 'camera geometrique');
+      if (source.nature === 'robotEnPoste' && c.perception) check(c.posteFixe, 'observation en poste fixe');
+      if (source.nature === 'microphone' || c.propriete.type === 'son') check(c.perception?.type === 'audio' && c.propriete.type === 'son', 'signal audio');
+      if (c.perception) {
+        const v = c.perception.volume;
+        point(v.offset); point(v.direction);
+        check(Number.isFinite(v.portee) && v.portee >= 0, 'portee');
+        check(Number.isFinite(v.angleDeg) && v.angleDeg > 0 && v.angleDeg <= 360 && Math.hypot(v.direction.x, v.direction.y, v.direction.z) > 0, 'cone observation');
+        if (c.perception.ancrage) {
+          point(c.perception.ancrage);
+          check(c.propriete.type !== 'robot' && c.propriete.type !== 'colis' && c.propriete.type !== 'son', 'ancrage reserve aux cibles fixes');
+        }
+        check((c.perception.type === 'audio') === (c.propriete.type === 'son'), 'type perception');
+        if (c.propriete.type === 'service' || c.propriete.type === 'consequences') check(c.perception.ancrage, 'ancrage de la propriete agregee');
+      }
+    });
+  }
+  for (const box of s.obstaclesObservation ?? []) {
+    point(box.min); point(box.max); box.actifSi.forEach(condition);
+    check(box.min.x < box.max.x && box.min.y < box.max.y && box.min.z < box.max.z, 'volume obstacle');
+    if (box.cible) target(box.cible);
+  }
+  for (const sound of s.emissionsSonores ?? []) {
+    target(sound.origine); sound.conditions.forEach(condition);
+    check(sound.son.length > 0, 'identifiant sonore');
   }
   for (const fact of s.observationsInitiales) {
     ref('source', fact.source); property(fact.propriete); integer(fact.capture.impulsion, 'capture'); integer(fact.reception, 'reception observation');

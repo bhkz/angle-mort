@@ -1,8 +1,9 @@
-import type { ActionAutorisee, EtatReel, Ordre, Scenario } from './types';
+import type { ActionAutorisee, EtatReel, IntentionTrajet, Ordre, Scenario } from './types';
 import { cargo, compareId, copy, indexById, matches, operational, requireValue, snapshot, type Mutable } from './util';
 import { validateScenario } from './validation';
 import { createRng } from './rng';
-import { collectObservations, playerView } from './observations';
+import { collectObservations } from './observations';
+import { createPlayerCatalogue, projectPlayerView } from './player-view';
 import { move, refuse } from './movement';
 import { cargoPermitted, permitted } from './rights';
 import { applyConsequences, resolveNeeds } from './scoring';
@@ -72,6 +73,7 @@ export function createSimulation(description: Scenario, seed: number) {
   const s = copy(description);
   s.graphe.sommets.sort(compareId); s.graphe.aretes.sort(compareId);
   s.sources.sort(compareId); s.besoins.sort(compareId); s.evenements.sort(compareId);
+  const catalogue = createPlayerCatalogue(s);
   const rng = createRng(seed);
   const equipment = indexById(s.equipements);
   for (const variant of [...(s.variantes ?? [])].sort(compareId)) {
@@ -82,7 +84,7 @@ export function createSimulation(description: Scenario, seed: number) {
     rng: { algorithme: 'mulberry32-v1', etat: rng.state() }, robots: indexById(s.robots), colis: indexById(s.colis), equipements: equipment,
     droitsRevoques: [], receptions: [], traversees: [], clotures: [], resultats: {},
     consequences: { stock: 'utilisable', atelier: 'intact' }, score: 0, refus: [],
-    observations: copy(s.observationsInitiales), constats: [], journal: [], ordresEnAttente: [],
+    observations: copy(s.observationsInitiales), constats: [], franchissements: [], franchissementsObserves: [], journal: [], ordresEnAttente: [],
   };
   for (const parcel of Object.values(state.colis)) {
     if (parcel.localisation.type === 'recu') state.receptions.push({ colis: parcel.id, sommet: parcel.localisation.sommet, impulsion: parcel.localisation.impulsion });
@@ -126,7 +128,10 @@ export function createSimulation(description: Scenario, seed: number) {
       resolveNeeds(s, state);
     },
     getAuthorState: (): EtatReel => snapshot(state),
-    getPlayerView: () => snapshot(playerView(s, state)),
+    getPlayerView: (intentions: readonly IntentionTrajet[] = []) => projectPlayerView(catalogue, {
+      impulsion: state.impulsion, observations: state.observations, constats: state.constats,
+      franchissementsObserves: state.franchissementsObserves,
+    }, intentions),
   };
 }
 export type Simulation = ReturnType<typeof createSimulation>;

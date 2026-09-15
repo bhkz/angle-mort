@@ -6,6 +6,8 @@ Suivi d'implémentation : la demande suivante porte sur le moteur des sections 1
 
 Suivi P3 : le planificateur de transport et les six optima de G §4 sont implémentés. Son domaine fini, ses budgets, le départage, la politique d'incertitude explicitement fournie par l'appelant et les choix relatifs à PT-14 sont documentés dans [src/planner/README.md](src/planner/README.md). Les mécaniques non prises en charge restent signalées comme telles.
 
+Suivi P4 : la couche d'observation du §4 et la projection des canaux joueur sont implémentées. Les conventions géométriques, capteurs, âge, provenance et limites de PT-09/10/11 sont précisées dans [le contrat d'observation P4](src/sim/README.md#contrat-dobservation-p4). Les tests comparent les sérialisations du Dernier passage et vérifient la non-fuite par propriétés ; l'intégration au futur rendu reste à tester lors de sa création.
+
 ## 1. Autorité, périmètre et conventions
 
 Sources actives, avec abréviations utilisées dans ce document :

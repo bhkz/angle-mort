@@ -47,6 +47,7 @@ export function move(s: Scenario, state: Mutable<EtatReel>, orders: readonly Ord
     if (blocked.has(id)) { refuse(state, p.order, 'deplacement', 'occupation'); continue; }
     const robot = requireValue(state.robots[id], 'Robot inconnu');
     robot.sommet = p.to;
+    state.franchissements.push({ robot: id, arete: p.edge.id, depuis: p.from, vers: p.to, impulsion: state.impulsion });
     if (robot.energie.type === 'limitee') robot.energie.restante -= p.edge.coutEnergie;
     robot.activite = 'transport';
   }
