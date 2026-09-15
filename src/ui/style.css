@@ -54,3 +54,19 @@ button { min-width: 44px; min-height: 48px; touch-action: manipulation; }
   .robot-cards { gap: 6px; }
   .robot-card span { font-size: 9px; max-width: 62px; }
 }
+dialog { color: #d9e6e9; background: #10232e; border: 1px solid #98d9ce; border-radius: 10px; padding: 24px; width: min(660px, calc(100vw - 28px)); max-height: calc(100dvh - 32px); overflow: auto; box-sizing: border-box; }
+dialog::backdrop { background: #05131de0; }
+dialog header { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+dialog button { min-width: 48px; min-height: 48px; }
+dialog p, dialog li { line-height: 1.55; }
+dialog li { margin-bottom: 12px; }
+#challenge-tools { position: absolute; z-index: 8; left: 36px; top: 154px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; max-width: 420px; }
+#challenge-tools[hidden] { display: none; }
+#challenge-clock { font: 12px monospace; }
+#final-score { display: block; font-size: 42px; color: #b5f4df; margin-top: 16px; }
+.result-table { overflow-x: auto; margin: 20px 0; }
+.result-table table { width: 100%; border-collapse: collapse; }
+.result-table th, .result-table td { padding: 10px; text-align: left; border-bottom: 1px solid #42565e; white-space: nowrap; }
+.result-table .missed { background: repeating-linear-gradient(135deg, transparent 0 5px, #73858b22 5px 7px); }
+#share-card { display: block; width: 100%; box-sizing: border-box; margin: 10px 0; padding: 12px; resize: vertical; background: #091a24; color: #d9e6e9; border: 1px solid #42565e; font: 12px/1.6 monospace; }
+@media (max-width: 600px) { #challenge-tools { left: 12px; top: 230px; max-width: calc(100vw - 24px); } dialog { padding: 16px; } }

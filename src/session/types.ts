@@ -1,7 +1,8 @@
 import type { Colis, ContratMission, Droit, Equipement, Graphe, VueJoueur } from '../sim/types';
 import type { Annonce, ResultatPlanification } from '../planner/types';
+import type { DefiPublic } from './challenge';
 
-export type Situation = 'atelier' | 'dernierPassage';
+export type Situation = 'atelier' | 'dernierPassage' | 'defi';
 export interface CartesMission {
   readonly mesure: 'receptionDestination' | 'transfertOuReception';
   readonly priorite: 'toutes' | 'medical';
@@ -31,6 +32,7 @@ export interface MissionSession {
   readonly echeance?: number;
 }
 export interface SessionFrame {
+  readonly defi?: DefiPublic;
   readonly view: VueJoueur;
   readonly catalogue: CatalogueSession;
   readonly missions: readonly MissionSession[];

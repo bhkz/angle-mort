@@ -3,15 +3,20 @@ import { catalogueSession, jouable } from '../scenarios/jouable';
 import { createSessionController } from './controller';
 import { cartesInitiales } from './types';
 import type { SessionRequest, SessionResponse } from './protocol';
+import { defi } from '../scenarios/defi';
+import { challengeFrame } from './challenge';
+import type { Scenario, Simulation } from '../sim';
 
 let session: ReturnType<typeof createSessionController> | undefined;
+let challenge: { scenario: Scenario; final: Simulation['getFinalReport'] } | undefined;
 const send = (message: SessionResponse) => postMessage(message);
 onmessage = (event: MessageEvent<SessionRequest>) => {
   try {
     const request = event.data;
     if (request.type === 'init') {
-      const situation = request.situation ?? 'atelier'; const scenario = jouable(situation);
+      const situation = request.situation ?? 'atelier'; const scenario = situation === 'defi' ? defi() : jouable(situation);
       const engine = createSimulation(scenario, 17);
+      challenge = situation === 'defi' ? { scenario, final: engine.getFinalReport } : undefined;
       session = createSessionController({ getPlayerView: engine.getPlayerView, submitOrders: engine.submitOrders, advance: engine.advance, configureMission: engine.configureMission }, catalogueSession(scenario, situation));
     } else if (session) {
       if (request.type === 'prepare') session.prepare(request.intention);
@@ -23,7 +28,10 @@ onmessage = (event: MessageEvent<SessionRequest>) => {
         session.advance();
       }
     }
-    if (session) send({ type: 'view', ...session.frame() });
+    if (session) {
+      const frame = session.frame();
+      send({ type: 'view', ...frame, ...(challenge ? { defi: challengeFrame(challenge.scenario, frame.view.impulsion, challenge.final()) } : {}) });
+    }
   } catch {
     send({ type: 'error', message: 'Cette commande ne peut pas être préparée. Le poste reste en pause.' });
   }

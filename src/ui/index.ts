@@ -6,6 +6,7 @@ import type { SessionRequest, SessionResponse } from '../session/protocol';
 import { layout } from './layout';
 import { missionCards } from './mission-card';
 import { parcels, places, provenance, robotName } from './labels';
+import { createChallengeUi } from './challenge';
 
 const freeze = <T>(value: T): T => { if (value && typeof value === 'object' && !Object.isFrozen(value)) { Object.freeze(value); Object.values(value).forEach(freeze); } return value; };
 
@@ -18,6 +19,7 @@ export function createGameUi(app: HTMLElement) {
   let situation: Situation = 'atelier';
   let expanded = false;
   const cardsByRobot = new Map<string, CartesMission>();
+  const challengeUi = createChallengeUi(app, () => { selection = null; view?.setSelection(null); el('context').hidden = true; });
   const cards = () => cardsByRobot.get(robot ?? '') ?? cartesInitiales;
   function send(request: SessionRequest) {
     busy = true; el<HTMLButtonElement>('advance').disabled = true; el('preparation-status').textContent = request.type === 'advance' ? 'EXÉCUTION' : 'PRÉPARATION';
@@ -115,8 +117,8 @@ export function createGameUi(app: HTMLElement) {
   function renderFrame() {
     if (!frame) return;
     el('pulse').textContent = `IMPULSION ${String(frame.view.impulsion).padStart(2, '0')}`;
-    el('situation-title').textContent = frame.catalogue.situation === 'atelier' ? 'Livrer à l’atelier.' : 'Le dernier passage.';
-    el('objective').textContent = frame.catalogue.situation === 'atelier' ? '▣ Pièce d’atelier' : '▣ Livrer la batterie';
+    el('situation-title').textContent = frame.catalogue.situation === 'atelier' ? 'Livrer à l’atelier.' : frame.defi ? 'Tenir jusqu’au matin.' : 'Le dernier passage.';
+    el('objective').textContent = frame.catalogue.situation === 'atelier' ? '▣ Pièce d’atelier' : frame.defi ? 'Pompage · Ferry · Fournitures' : '▣ Livrer la batterie · Entraînement';
     el('preparation-status').textContent = frame.fin ? 'POSTE TERMINÉ' : 'EN PRÉPARATION';
     el('cancel').hidden = !frame.preparation;
     el<HTMLButtonElement>('advance').disabled = busy || frame.fin;
@@ -141,6 +143,7 @@ export function createGameUi(app: HTMLElement) {
       el('receipt').append(title, detail); el('receipt').dataset.colis = latest.c.id;
     }
     renderContext();
+    challengeUi.render(frame);
     if (focusExecute) { el('advance').focus(); focusExecute = false; }
     app.dataset.ready = 'true'; app.dataset.niveau = String(frame.niveau);
   }
@@ -166,12 +169,15 @@ export function createGameUi(app: HTMLElement) {
   el('advance').onclick = () => { if (!busy && !frame?.fin) send({ type: 'advance' }); };
   el('cancel').onclick = () => send({ type: 'cancel' });
   function restart(next: Situation) {
+    challengeUi.reset(next === 'defi');
     selection = null; robot = null; expanded = false; focusExecute = false; cardsByRobot.clear(); view?.dispose(); view = undefined;
     zoom = 1; cutaway = false; el('frame-quai').setAttribute('aria-pressed', 'true'); el('frame-coursive').setAttribute('aria-pressed', 'false'); el('cutaway').setAttribute('aria-pressed', 'false');
     el('receipt').hidden = true; el('context').hidden = true; delete app.dataset.ready; send({ type: 'init', situation: next });
   }
   el('scenario-intro').onclick = () => restart('atelier'); el('scenario-challenge').onclick = () => restart('dernierPassage'); el('restart').onclick = () => restart(situation);
+  el('scenario-defi').onclick = () => restart('defi');
   const keyboard = (event: KeyboardEvent) => {
+    if (app.querySelector('dialog[open]')) return;
     if (event.ctrlKey || event.metaKey || event.altKey) return;
     if (event.key === '1' || event.key === '2') { event.preventDefault(); select({ type: 'robot', id: event.key === '1' ? 'R' : 'R2' }, true); }
     else if (event.key.toLowerCase() === 'a') { event.preventDefault(); select({ type: 'sommet', id: 'Q' }, true); }

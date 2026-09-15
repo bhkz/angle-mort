@@ -87,13 +87,16 @@ export function validateScenario(s: Scenario): void {
     check(count <= 2 && !(count > 0 && robot.activite === 'observationFixe'), 'chargement initial');
   }
   for (const e of s.equipements) { target(e.cible); check(validEquipmentState(e, e.etat), 'etat equipement'); }
-  s.services.forEach(service => service.dependances.forEach(condition));
+  s.services.forEach(service => { check(service.dependances.length > 0, 'service sans dependances physiques'); service.dependances.forEach(condition); });
+  const uniqueEvidence = new Set<string>();
   for (const n of s.besoins) {
     ref('service', n.service); integer(n.fenetre.debutExclu, 'fenetre debut'); integer(n.fenetre.finIncluse, 'fenetre fin');
     integer(n.revelation, 'revelation');
     check(n.fenetre.debutExclu < n.fenetre.finIncluse && n.fenetre.finIncluse <= s.fin && n.points === 100, 'fenetre/points');
     check([1, 2, 3, 4].includes(n.phase), 'phase');
     const c = n.condition;
+    const evidence = c.type === 'reception' ? `reception:${c.colis}` : c.type === 'traversee' ? `traversee:${c.evenement}` : `controle:${n.service}:${c.controle}`;
+    check(!uniqueEvidence.has(evidence), 'preuve partagee entre besoins'); uniqueEvidence.add(evidence);
     if (c.type === 'reception') { ref('colis', c.colis); ref('sommet', c.destination); }
     if (c.type === 'traversee') {
       ref('evenement', c.evenement); integer(c.horaire, 'horaire');

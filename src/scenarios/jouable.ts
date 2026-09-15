@@ -44,6 +44,6 @@ export function catalogueSession(s: Scenario, situation: Situation): CatalogueSe
     robots: s.robots.map(r => ({ id: r.id, canal: r.canal, capaciteColis: r.capaciteColis })),
     equipements: s.equipements.map(e => ({ id: e.id, nature: e.nature })), droits: s.droits, missions: s.missions,
     annonces: s.evenements.flatMap(e => e.type === 'equipement' && e.equipement === 'passerelle' ? [{ ...e, source: 'horaire-public-passerelle' }] : []),
-    critique: situation === 'dernierPassage' ? { colis: 'battery', avantOuA: 8, label: 'Batterie reçue à t8 au plus' } : { colis: 'M', avantOuA: s.fin, label: 'Réception médicale exigée' },
+    critique: situation !== 'atelier' ? { colis: 'battery', avantOuA: 8, label: 'Batterie reçue à t8 au plus' } : { colis: 'M', avantOuA: s.fin, label: 'Réception médicale exigée' },
   };
 }

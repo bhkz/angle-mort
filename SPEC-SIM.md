@@ -12,6 +12,8 @@ Suivi P5 : le [rendu Three.js du Quai 17](src/view/README.md) consomme uniquemen
 
 Suivi P6 : la [boucle jouable](src/ui/README.md) relie cartes, planificateur, observations et moteur. Une entrée en jeu distincte propose une livraison P→Q en une impulsion ; le Dernier passage conserve son checkpoint t4. La préparation est réversible, les missions persistent et la reprise conserve leurs échéances. Les tests couvrent le parcours souris/tactile/clavier et les confirmations issues uniquement des observations.
 
+Suivi P7 : le [défi complet Situation 041](src/scenarios/DEFI.md) joue t0–t16 sans besoins importés. Le préfixe manquant, les dépendances physiques et les conventions de record sont explicités. Les résultats finaux passent par une API séparée, vide avant t16 ; le partage reste une copie volontaire. Le checkpoint et ses cinq scores témoins restent distincts.
+
 ## 1. Autorité, périmètre et conventions
 
 Sources actives, avec abréviations utilisées dans ce document :

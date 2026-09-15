@@ -7,6 +7,7 @@ import { createPlayerCatalogue, projectPlayerView } from './player-view';
 import { move, refuse } from './movement';
 import { cargoPermitted, permitted } from './rights';
 import { applyConsequences, resolveNeeds } from './scoring';
+import { finalReport } from './final-report';
 
 function events(s: Scenario, state: Mutable<EtatReel>): void {
   const due = s.evenements.filter(e => e.impulsion === state.impulsion);
@@ -139,6 +140,7 @@ export function createSimulation(description: Scenario, seed: number) {
       resolveNeeds(s, state);
     },
     getAuthorState: (): EtatReel => snapshot(state),
+    getFinalReport: () => finalReport(s, state),
     getPlayerView: (intentions: readonly IntentionTrajet[] = []) => projectPlayerView(catalogue, {
       impulsion: state.impulsion, observations: state.observations, constats: state.constats,
       franchissementsObserves: state.franchissementsObserves,
