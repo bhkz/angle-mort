@@ -8,16 +8,16 @@ test('défi t0–t16 : bilan final uniquement, copie volontaire, record indépen
     } } });
   });
   await page.goto('/'); await expect(page.locator('#app')).toHaveAttribute('data-ready', 'true');
-  await page.locator('#scenario-defi').click(); await expect(page.locator('#challenge-clock')).toHaveText('Phase 1/4 · 22 h 00');
+  await page.locator('#show-modes').click(); await page.locator('#scenario-defi').click(); await expect(page.locator('#challenge-clock')).toHaveText('Phase 1/4 · 22 h 00');
   await page.locator('#show-contract').click(); await expect(page.locator('#challenge-needs li')).toHaveCount(3);
-  await expect(page.locator('#challenge-contract')).toContainText('Les trois derniers besoins exigent aussi un service opérationnel à t16');
+  await expect(page.locator('#challenge-contract')).toContainText('chaque service doit encore fonctionner à la fin du tour 16');
   await page.locator('#close-contract').click();
   for (let t = 1; t <= 16; t++) {
     await expect(page.locator('#challenge-result')).not.toBeVisible();
     await expect(page.locator('#show-result')).toBeHidden();
     expect(await page.locator('#final-score').textContent()).toBe('');
-    await page.locator('#advance').click(); await expect(page.locator('#pulse')).toHaveText(`IMPULSION ${String(t).padStart(2, '0')}`);
-    if (t === 4) { await page.locator('#show-contract').click(); await expect(page.locator('#challenge-needs')).toContainText('P2'); await page.locator('#close-contract').click(); }
+    await page.locator('#advance').click(); await expect(page.locator('#quay')).toHaveAttribute('data-impulsion', String(t));
+    if (t === 4) { await page.locator('#show-contract').click(); await expect(page.locator('#challenge-needs')).toContainText('batterie'); await page.locator('#close-contract').click(); }
   }
   await expect(page.locator('#challenge-result')).toBeVisible();
   await expect(page.locator('#final-score')).toHaveText('500 / 1200');
@@ -34,11 +34,11 @@ test('défi t0–t16 : bilan final uniquement, copie volontaire, record indépen
   await expect(page.locator('#share-card')).toBeFocused();
   await page.locator('#close-result').click();
   const history = await page.evaluate(() => JSON.stringify(localStorage));
-  await page.locator('#scenario-challenge').click(); await expect(page.locator('#pulse')).toHaveText('IMPULSION 04');
-  for (let t = 5; t <= 16; t++) { await page.locator('#advance').click(); await expect(page.locator('#pulse')).toHaveText(`IMPULSION ${String(t).padStart(2, '0')}`); }
+  await page.locator('#show-modes').click(); await page.locator('#scenario-challenge').click(); await expect(page.locator('#quay')).toHaveAttribute('data-impulsion', '4');
+  for (let t = 5; t <= 16; t++) { await page.locator('#advance').click(); await expect(page.locator('#quay')).toHaveAttribute('data-impulsion', String(t)); }
   expect(await page.evaluate(() => JSON.stringify(localStorage))).toBe(history);
   await expect(page.locator('#show-result')).toBeHidden();
-  await page.locator('#scenario-defi').click(); await expect(page.locator('#pulse')).toHaveText('IMPULSION 00');
+  await page.locator('#show-modes').click(); await page.locator('#scenario-defi').click(); await expect(page.locator('#quay')).toHaveAttribute('data-impulsion', '0');
   await expect(page.locator('#challenge-result')).not.toBeVisible(); await expect(page.locator('#show-result')).toBeHidden();
   expect(await page.locator('#share-card').inputValue()).toBe('');
   expect(await page.locator('#final-score').textContent()).toBe('');

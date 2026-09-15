@@ -14,6 +14,8 @@ Suivi P6 : la [boucle jouable](src/ui/README.md) relie cartes, planificateur, ob
 
 Suivi P7 : le [défi complet Situation 041](src/scenarios/DEFI.md) joue t0–t16 sans besoins importés. Le préfixe manquant, les dépendances physiques et les conventions de record sont explicités. Les résultats finaux passent par une API séparée, vide avant t16 ; le partage reste une copie volontaire. Le checkpoint et ses cinq scores témoins restent distincts.
 
+Suivi P8 : la [revue adverse](REVUE-P8.md) a identifié puis fait corriger un libellé d'optimalité trop large. La [passe UX](src/ui/README.md) ajoute un apprentissage explicite, une animation lisible des observations et un guidage de défi étiqueté entraînement. Les conditions physiques et les tests d'or restent inchangés.
+
 ## 1. Autorité, périmètre et conventions
 
 Sources actives, avec abréviations utilisées dans ce document :

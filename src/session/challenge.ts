@@ -25,9 +25,9 @@ export function meilleurRecord(previous: RecordDefi | null, next: RecordDefi): R
   // Equal scores are ex aequo: services are contextual information, never a tie-break.
   return previous && previous.score >= next.score ? previous : next;
 }
-export function cartePartage(d: DefiPublic, best: RecordDefi, tentative: number): string {
+export function cartePartage(d: DefiPublic, best: RecordDefi | null, tentative: number, training = false): string {
   if (!d.bilan) throw new Error('Bilan indisponible avant la fin');
   const b = d.bilan;
   const grid = b.services.map(s => `${s.id === 'pompage' ? 'Pompage' : s.id === 'ferry' ? 'Ferry' : 'Fournitures'} : ${[1, 2, 3, 4].map(phase => b.besoins.find(n => n.service === s.id && n.phase === phase)?.resultat.etat === 'satisfait' ? '■' : '·').join(' ')}`).join('\n');
-  return `ANGLE MORT · Quai 17 · Situation ${d.situation} · ${d.difficulte} · v${d.version}\n${b.score} / ${b.maximum} · Poste terminé · ${b.services.filter(s => s.operationnel).length}/3 services en activité · ${d.heure}\nMeilleure tentative : ${best.tentative} (${best.score} / ${b.maximum})\n${tentative === 1 ? 'Première découverte' : `Tentative ${tentative}`} · Résultat local déclaratif\n${grid}\nQui garde les trois jusqu’au matin ?`;
+  return `ANGLE MORT · Quai 17 · Situation ${d.situation} · ${d.difficulte} · v${d.version}\n${b.score} / ${b.maximum} · Poste terminé · ${b.services.filter(s => s.operationnel).length}/3 services en activité · ${d.heure}\n${best ? `Meilleure tentative : ${best.tentative} (${best.score} / ${b.maximum})` : 'Aucun record de tentative complète'}\n${training ? 'Entraînement guidé · Hors record' : tentative === 1 ? 'Première découverte' : `Tentative ${tentative}`} · Résultat local déclaratif\n${grid}\nQui garde les trois jusqu’au matin ?`;
 }

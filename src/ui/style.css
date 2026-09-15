@@ -70,3 +70,97 @@ dialog li { margin-bottom: 12px; }
 .result-table .missed { background: repeating-linear-gradient(135deg, transparent 0 5px, #73858b22 5px 7px); }
 #share-card { display: block; width: 100%; box-sizing: border-box; margin: 10px 0; padding: 12px; resize: vertical; background: #091a24; color: #d9e6e9; border: 1px solid #42565e; font: 12px/1.6 monospace; }
 @media (max-width: 600px) { #challenge-tools { left: 12px; top: 230px; max-width: calc(100vw - 24px); } dialog { padding: 16px; } }
+
+/* P8: the controls have their own space; the quay remains readable. */
+#app { min-height: 0; }
+#quay { top: 112px; right: 350px; bottom: 152px; overflow: hidden; border-top: 1px solid #66808035; }
+.masthead { top: 16px; left: 24px; right: 530px; }
+.masthead h1 { font-size: 25px; margin: 4px 0; letter-spacing: -.5px; }
+.masthead #objective { margin: 6px 0; font-size: 13px; color: #b6cdcc; }
+.main-tools { position: absolute; top: 22px; right: 20px; display: flex; gap: 8px; }
+.main-tools button { font-size: 12px; padding: 0 12px; }
+.camera-controls { z-index: 12; top: 120px; left: 16px; right: auto; width: 250px; display: block; background: #10242eeb; border: 1px solid #789d9b66; border-radius: 6px; }
+summary { cursor: pointer; padding: 12px; min-height: 48px; font-size: 13px; }
+.camera-controls p { padding: 0 12px; font-size: 12px; line-height: 1.5; }
+.camera-controls .segmented, .camera-controls .view-tools { padding: 5px 10px; }
+.camera-controls .segmented button { padding: 0 12px; }
+.view-tools #cutaway { margin-left: 0; font-size: 11px; }
+#help-panel { position: absolute; top: 112px; right: 16px; bottom: 152px; width: 318px; overflow-y: auto; padding-right: 4px; display: flex; flex-direction: column; gap: 12px; }
+#guide { background: #15302f; border: 1px solid #8ecab599; padding: 16px; border-radius: 8px; }
+#guide h2 { font-size: 20px; margin: 6px 0 10px; line-height: 1.2; }
+#guide p { font-size: 14px; line-height: 1.6; margin: 8px 0 14px; color: #c7ded7; }
+#guide-progress { font-size: 10px; margin: 0; letter-spacing: .6px; }
+#guide-action { width: 100%; padding: 10px; background: #b0e7ce; color: #102924; font-weight: 700; font-size: 14px; }
+.context-panel { position: static; width: 100%; max-width: none; max-height: none; padding: 14px; overflow: visible; }
+.object-purpose, .card-explanation { font-size: 13px; line-height: 1.6; color: #b7cdcf; }
+.context-action { font-size: 13px; }
+.destination-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.destination-choices .context-action { text-align: center; }
+.mission-choice { font-size: 13px; }
+.observation-stamp, .plan-summary, .refusal { font-size: 12px; }
+.receipt { position: static; width: 100%; max-width: none; transform: none; padding: 14px; }
+.receipt span { font-size: 12px; }
+.legend { display: grid; margin: 8px 0; font-size: 11px; gap: 9px; }
+#challenge-tools { position: static; display: grid; grid-template-columns: 1fr; max-width: none; gap: 8px; }
+#challenge-clock { padding: 3px 0; font-size: 13px; }
+.bottom-bar { height: 152px; padding: 16px 24px; align-items: center; gap: 20px; background: #0a1c27; border-top: 1px solid #80999644; }
+.robot-card { min-width: 112px; padding: 10px; gap: 8px; }
+.robot-card span { font-size: 11px; max-width: 120px; }
+.robot-icon { font-size: 26px; }
+#turn-feedback { flex: 1; min-width: 0; max-width: 520px; }
+#turn-feedback strong, #turn-feedback span { display: block; font-size: 13px; line-height: 1.5; }
+#turn-feedback strong { color: #c6eedb; margin-bottom: 6px; }
+#turn-feedback span { color: #a9c3c7; }
+.pulse-controls { width: 270px; flex-shrink: 0; }
+#advance { height: 52px; font-size: 15px; padding: 0 12px; justify-content: center; text-transform: none; }
+#cancel { width: 74px; flex: 0 0 74px; font-size: 12px; }
+#execution-hint { font-size: 11px; line-height: 1.4; margin: 7px 0 0; }
+.pulse-status { font-size: 11px; margin-bottom: 8px; }
+.scene-label.object-target { background: #102b31f0; font-size: 12px; border-radius: 6px; min-height: 44px; box-shadow: 0 3px 10px #00101a; }
+.scene-label.robot-target { border-radius: 50%; min-width: 50px; min-height: 50px; font-weight: 800; font-size: 16px; border: 2px solid #a8e6d1; }
+.suggested { outline: 3px solid #f0d68a; outline-offset: 4px; box-shadow: 0 0 22px #f0d68a55 !important; }
+.door-label { pointer-events: auto; cursor: pointer; left: 14px !important; top: auto !important; bottom: 44px; transform: none; padding: 8px 10px; min-height: 48px; max-width: 280px; }
+.bridge-label { left: 14px !important; top: auto !important; bottom: 12px; transform: none; }
+.source-label { display: none; }
+.mode-choice { display: block; text-align: left; width: 100%; padding: 16px; margin: 12px 0; }
+.mode-choice strong, .mode-choice span { display: block; }
+.mode-choice strong { font-size: 18px; color: #c3ecdc; margin-bottom: 6px; }
+.mode-choice span { line-height: 1.55; font-size: 14px; }
+#challenge-needs { padding-left: 0; list-style: none; }
+#challenge-needs li { padding: 14px; border: 1px solid #6d939777; border-radius: 6px; }
+#challenge-needs strong { color: #c2ecd9; font-size: 17px; }
+#challenge-needs p { margin-bottom: 0; }
+@media (max-width: 1100px) and (min-width: 701px) {
+  .masthead { right: 440px; } .masthead h1 { font-size: 21px; }
+  .main-tools { right: 12px; gap: 4px; } .main-tools button { padding: 0 8px; font-size: 11px; }
+  #quay { right: 302px; } #help-panel { width: 280px; right: 10px; }
+  .bottom-bar { gap: 12px; padding: 12px; } .robot-icon { display: none; } .robot-card { min-width: 80px; }
+  .pulse-controls { width: 230px; } #turn-feedback strong, #turn-feedback span { font-size: 12px; }
+}
+@media (max-width: 700px) {
+  #app { height: auto; min-height: 100dvh; display: flex; flex-direction: column; padding-top: 128px; overflow: visible; }
+  .masthead { left: 14px; right: 14px; top: 12px; } .masthead h1 { font-size: 21px; } .masthead #objective { font-size: 12px; margin: 5px 0; }
+  .eyebrow { font-size: 9px; } .main-tools { top: 76px; left: 12px; right: 12px; justify-content: space-between; }
+  .main-tools button { font-size: 10px; padding: 0 8px; }
+  #help-panel { display: contents; } #guide { order: 1; margin: 0 12px 8px; padding: 12px; }
+  #guide h2 { font-size: 18px; margin: 6px 0; } #guide p { font-size: 12px; line-height: 1.5; margin: 8px 0; }
+  #guide-action { font-size: 13px; }
+  #quay { position: relative; inset: auto; width: 100%; height: 340px; flex-shrink: 0; order: 2; }
+  .camera-controls { top: auto; left: auto; width: auto; margin: 8px 12px; position: static; order: 3; display: block; }
+  #context { order: 3; margin: 8px 12px; width: auto; max-width: none; }
+  #receipt { order: 4; width: auto; margin: 8px 12px; }
+  #challenge-tools { order: 1; margin: 4px 12px 10px; grid-template-columns: 1fr 1fr; align-items: center; }
+  #help-panel > .legend { display: none; }
+  .bottom-bar { position: sticky; order: 5; bottom: 0; height: auto; min-height: 140px; padding: 10px 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .robots { grid-column: 1; grid-row: 1; } .section-kicker { margin-bottom: 6px; }
+  .robot-icon { display: none; } .robot-card { min-width: 68px; padding: 8px 6px; } .robot-card span { font-size: 9px; max-width: 70px; }
+  .pulse-controls { width: auto; grid-column: 2; grid-row: 1; } #advance { font-size: 12px; padding: 0 5px; }
+  #cancel { width: 50px; flex-basis: 50px; font-size: 10px; } .pulse-status { font-size: 10px; } #preparation-status { display: none; }
+  #execution-hint { font-size: 10px; }
+  #turn-feedback { grid-column: 1 / -1; grid-row: 2; max-width: none; }
+  #turn-feedback strong, #turn-feedback span { font-size: 11px; line-height: 1.4; }
+  #turn-feedback strong { margin: 0; }
+  .scene-label.object-target { font-size: 10px; padding: 0 6px; } .scene-label.robot-target { font-size: 14px; }
+  .door-label { font-size: 9px; width: 190px; max-width: 190px; padding: 6px; bottom: 8px; } .door-label strong { font-size: 9px; }
+  .bridge-label { font-size: 8px; left: 212px !important; width: calc(100% - 224px); bottom: 8px; min-height: 48px; display: grid; align-items: center; white-space: normal; }
+}

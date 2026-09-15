@@ -20,7 +20,7 @@ export function equipmentReport(view: VueJoueur, id: string): EquipmentReport {
 export function observationCaption(report: EquipmentReport): string {
   if (report.value === null) return 'Aucune observation exploitable';
   const words: Record<string, string> = { ouverte: 'ouverte', bloquee: 'bloquée', relevee: 'relevée', abaissee: 'abaissée', maintenance: 'en maintenance', disponible: 'disponible' };
-  return `${report.status === 'current' ? 'Observée' : 'Dernière observation'} : ${words[report.value] ?? report.value} · t${report.at}`;
+  return `${report.status === 'current' ? 'Observée' : 'Dernière observation'} : ${words[report.value] ?? report.value} · tour ${report.at}`;
 }
 export function robotReports(view: VueJoueur) {
   // Preserve conflicting same-date reports, but discard older poses when a newer one was received.

@@ -13,8 +13,9 @@ export function missionCards(cards: CartesMission, level: 1 | 2 | 3, change: (ca
     }
     root.append(fieldset);
   }
-  slot('mesure', 'Ce qu’on compte', [['receptionDestination', 'Reçus à destination', '▣'], ['transfertOuReception', 'Traités au transfert', '⇄']]);
+  slot('mesure', 'Ce qu’on compte', [['receptionDestination', 'Livrer chez le destinataire', '▣'], ['transfertOuReception', 'Accepter aussi un dépôt au transfert', '⇄']]);
   if (level >= 2) slot('priorite', 'Qui passe d’abord', [['toutes', 'Toutes les demandes', '≡'], ['medical', 'Infirmerie prioritaire', '✚']]);
-  if (level >= 3) slot('limite', 'Ce qui doit être respecté', [['quai', 'Rester sur le quai', '⌑'], ['critique', criticalLabel, '✚'], ['expiration', 'Expiration : 4 impulsions', '◷']]);
+  if (level >= 3) slot('limite', 'Ce qui doit être respecté', [['quai', 'Rester sur le quai bas', '⌑'], ['critique', criticalLabel.replace('t8', 'tour 8'), '✚'], ['expiration', 'Arrêter la mission après 4 tours', '◷']]);
+  const explanation = document.createElement('p'); explanation.className = 'card-explanation'; explanation.textContent = 'Ces cartes guident les choix d’EVA, votre aide aux trajets. Accepter un dépôt au transfert peut raccourcir une tournée, mais ne prouve pas que le destinataire a reçu le colis.'; root.append(explanation);
   return root;
 }

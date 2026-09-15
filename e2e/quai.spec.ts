@@ -8,12 +8,12 @@ async function ready(page: Page) {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/');
   await expect(page.locator('#app')).toHaveAttribute('data-ready', 'true');
-  await page.locator('#scenario-challenge').click();
+  await page.locator('#show-modes').click(); await page.locator('#scenario-challenge').click();
   await expect(page.locator('#quay')).toHaveAttribute('data-impulsion', '4');
   expect(errors).toEqual([]);
 }
 async function advance(page: Page, pulse: number) {
-  await page.getByRole('button', { name: 'Exécuter' }).click();
+  await page.locator('#advance').click();
   await expect(page.locator('#quay')).toHaveAttribute('data-impulsion', String(pulse));
 }
 async function withPlayerPacket(page: Page, view: VueJoueur) {
@@ -33,7 +33,7 @@ test('capture demandée : porte bloquée réelle, sans C, état affiché inconnu
   await ready(page);
   await expect(page.getByTestId('door-label')).toHaveAttribute('data-state', 'inconnue');
   await expect(page.getByTestId('door-label')).toContainText('PORTE · ÉTAT INCONNU');
-  await expect(page.getByTestId('door-label')).toContainText('ouverte · t2');
+  await expect(page.getByTestId('door-label')).toContainText('ouverte · tour 2');
   await expect(page.locator('body')).not.toContainText('PORTE BLOQUÉE');
   await expect(page.locator('#quay')).toHaveAttribute('data-observed-robots', 'R2@H:t4,R@T:t4');
   await page.screenshot({ path: 'artifacts/quai17-t4.png' });
@@ -48,7 +48,8 @@ test('non-fuite visuelle : pixels et texte identiques pour les deux mondes, mêm
     await withPlayerPacket(page, view);
     await ready(page);
   }
-  for (const action of [null, 'Coupe du hangar', 'Vue haute', 'Zoomer', 'Dézoomer', 'Vue du quai']) {
+  for (const page of [a, b]) await page.locator('.camera-controls summary').click();
+  for (const action of [null, 'Masquer le hangar', 'Vue haute', 'Zoomer', 'Dézoomer', 'Vue du quai']) {
     if (action) for (const page of [a, b]) await page.getByRole('button', { name: action, exact: true }).click();
     expect(await a.locator('#app').innerText()).toBe(await b.locator('#app').innerText());
     const pixels = await a.locator('canvas').screenshot();
@@ -71,7 +72,7 @@ test('les silhouettes datées gardent leur position et leur rendu se distingue d
   const a = await context.newPage(); const b = await context.newPage();
   for (const [page, packet] of [[a, dated], [b, fresh]] as const) {
     await withPlayerPacket(page, packet); await page.goto('/'); await expect(page.locator('#app')).toHaveAttribute('data-ready', 'true');
-    await page.getByRole('button', { name: 'Coupe du hangar' }).click();
+    await page.locator('.camera-controls summary').click();
   }
   await expect(a.locator('#quay')).toHaveAttribute('data-observed-robots', 'R2@H:t4,R@T:t4');
   await expect(a.locator('.robot-card.historical')).toHaveCount(2);
@@ -83,7 +84,7 @@ test('les silhouettes datées gardent leur position et leur rendu se distingue d
 test('seule l’observation en C révèle la porte à t5 ; les horaires de passerelle viennent du moteur', async ({ page }) => {
   await ready(page);
   await page.locator('[data-object="sommet:C"]').click();
-  await page.getByRole('button', { name: 'Observer depuis C' }).click();
+  await page.getByRole('button', { name: 'Envoyer R2 au poste d’observation' }).click();
   await expect(page.getByTestId('door-label')).toHaveAttribute('data-state', 'inconnue');
   await advance(page, 5);
   await expect(page.getByTestId('door-label')).toHaveAttribute('data-state', 'bloquee');
@@ -105,9 +106,10 @@ test('résolution plafonnée, écran étroit et aucune avance du temps par les c
   const size = await page.locator('canvas').evaluate((canvas: HTMLCanvasElement) => ({ width: canvas.width, height: canvas.height }));
   expect(size.width).toBeLessThanOrEqual(1600); expect(size.height).toBeLessThanOrEqual(1000);
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator('.camera-controls summary').click();
   await page.getByRole('button', { name: 'Vue haute' }).click();
   await page.getByRole('button', { name: 'Zoomer', exact: true }).click();
   await expect(page.locator('#quay')).toHaveAttribute('data-impulsion', '4');
-  await expect(page.getByRole('button', { name: 'Exécuter' })).toBeInViewport();
+  await expect(page.locator('#advance')).toBeInViewport();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
 });

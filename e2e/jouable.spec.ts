@@ -15,7 +15,8 @@ for (const mode of ['souris', 'tactile', 'clavier'] as const) test(`robot → at
   const page = await context.newPage(); const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
   const start = performance.now(); await started(page);
   await expect(page.locator('#context')).toBeHidden();
-  expect(await page.locator('#app').innerText()).not.toMatch(/cliquez|touchez|sélectionnez|tutoriel|R2 peut|Exécuter pour/iu);
+  await expect(page.locator('#guide')).toContainText('Votre premier but');
+  await expect(page.locator('#advance')).toBeDisabled();
   if (mode === 'clavier') await page.keyboard.press('1');
   else if (mode === 'tactile') await page.locator('[data-object="robot:R"]').tap();
   else await page.locator('[data-object="robot:R"]').click();
@@ -26,7 +27,8 @@ for (const mode of ['souris', 'tactile', 'clavier'] as const) test(`robot → at
   else await page.locator('[data-object="sommet:Q"]').click();
   await expect(page.locator('#cancel')).toBeVisible(); await expect(page.locator('#advance')).toBeEnabled();
   await expect(page.locator('#quay')).toHaveAttribute('data-impulsion', '0');
-  await expect(page.locator('[data-slot="mesure"]')).toBeVisible();
+  await expect(page.locator('#guide')).toContainText('Trajet préparé');
+  await expect(page.locator('[data-slot="mesure"]')).toHaveCount(0);
   await expect(page.locator('[data-slot="priorite"]')).toHaveCount(0);
   if (mode === 'souris') await page.screenshot({ path: 'artifacts/sequence-02-preparation.png' });
   if (mode === 'clavier') { await expect(page.locator('#advance')).toBeFocused(); await page.keyboard.press('Enter'); }
@@ -50,17 +52,17 @@ for (const mode of ['souris', 'tactile', 'clavier'] as const) test(`robot → at
 
 test('annuler, composer progressivement, et conserver les missions entre impulsions', async ({ page }) => {
   await started(page);
-  await page.locator('[data-object="robot:R"]').click(); await page.getByRole('button', { name: 'Composer une mission' }).click();
+  await page.locator('[data-object="robot:R"]').click(); await page.getByRole('button', { name: 'Régler la mission' }).click();
   await expect(page.locator('[data-slot="mesure"]')).toBeVisible(); await expect(page.locator('[data-slot="priorite"]')).toHaveCount(0);
   await page.locator('[data-object="sommet:Q"]').click(); await expect(page.locator('#cancel')).toBeVisible();
   await page.keyboard.press('Escape'); await expect(page.locator('#cancel')).toBeHidden(); await expect(page.locator('#context')).toBeHidden();
   await expect(page.locator('#quay')).toHaveAttribute('data-impulsion', '0');
   await page.locator('[data-object="robot:R"]').click(); await page.locator('[data-object="sommet:Q"]').click(); await execute(page, 1);
-  await page.locator('[data-object="robot:R"]').click(); await expect(page.locator('[data-slot="priorite"]')).toBeVisible();
+  await page.locator('[data-object="robot:R"]').click(); await page.getByRole('button', { name: 'Régler la mission' }).click(); await expect(page.locator('[data-slot="priorite"]')).toBeVisible();
   await expect(page.locator('[data-slot="limite"]')).toHaveCount(0);
   await page.locator('[data-object="sommet:F"]').click(); await execute(page, 2); await execute(page, 3);
   await expect(page.locator('#receipt')).toHaveAttribute('data-colis', 'M');
-  await page.locator('[data-object="robot:R"]').click(); await expect(page.locator('[data-slot="limite"]')).toBeVisible();
+  await page.locator('[data-object="robot:R"]').click(); await page.getByRole('button', { name: 'Régler la mission' }).click(); await expect(page.locator('[data-slot="limite"]')).toBeVisible();
   await page.getByRole('button', { name: 'Rejoindre le dépôt' }).click(); await execute(page, 4);
   const first = await page.locator('#quay').getAttribute('data-observed-robots');
   await page.locator('#context').getByRole('button', { name: 'Suspendre' }).click(); await execute(page, 5);

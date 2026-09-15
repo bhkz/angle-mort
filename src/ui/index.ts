@@ -5,8 +5,9 @@ import { cartesInitiales, type CartesMission, type Intention, type SessionFrame,
 import type { SessionRequest, SessionResponse } from '../session/protocol';
 import { layout } from './layout';
 import { missionCards } from './mission-card';
-import { parcels, places, provenance, robotName } from './labels';
+import { parcels, places, placePurpose, provenance, robotName } from './labels';
 import { createChallengeUi } from './challenge';
+import { guideFor } from './guidance';
 
 const freeze = <T>(value: T): T => { if (value && typeof value === 'object' && !Object.isFrozen(value)) { Object.freeze(value); Object.values(value).forEach(freeze); } return value; };
 
@@ -15,13 +16,15 @@ export function createGameUi(app: HTMLElement) {
   const el = <T extends HTMLElement = HTMLElement>(id: string) => app.querySelector<T>(`#${id}`)!;
   const worker = new Worker(new URL('../session/simulation.worker.ts', import.meta.url), { type: 'module' });
   let view: QuayView | undefined; let frame: SessionFrame | undefined; let selection: QuaySelection | null = null;
-  let robot: string | null = null; let zoom = 1; let cutaway = false; let busy = true; let focusExecute = false;
+  let robot: string | null = null; let zoom = 1; let cutaway = true; let busy = true; let focusExecute = false;
   let situation: Situation = 'atelier';
   let expanded = false;
+  let guidedChallenge = false;
   const cardsByRobot = new Map<string, CartesMission>();
   const challengeUi = createChallengeUi(app, () => { selection = null; view?.setSelection(null); el('context').hidden = true; });
   const cards = () => cardsByRobot.get(robot ?? '') ?? cartesInitiales;
   function send(request: SessionRequest) {
+    app.dataset.busy = 'true'; el<HTMLButtonElement>('guide-action').disabled = true;
     busy = true; el<HTMLButtonElement>('advance').disabled = true; el('preparation-status').textContent = request.type === 'advance' ? 'EXÉCUTION' : 'PRÉPARATION';
     el('error').hidden = true; worker.postMessage(request);
   }
@@ -33,31 +36,21 @@ export function createGameUi(app: HTMLElement) {
     send({ type: 'prepare', intention: { robot, destination, action, cartes: cards() } });
   }
   function select(target: QuaySelection, keyboard = false) {
-    if (!frame || busy) return;
+    if (!frame || busy || el('quay').dataset.animating === 'true') return;
     selection = target; view?.setSelection(target);
     if (target.type === 'robot') {
       robot = target.id;
       const mission = frame.missions.find(m => m.intention.robot === robot);
-      expanded = Boolean(mission && mission.statut !== 'terminee');
+      expanded = false;
       if (mission) cardsByRobot.set(robot, mission.intention.cartes);
     } else if (target.type === 'sommet' && robot) {
       const canDeliver = frame.catalogue.colis.some(c => c.destination === target.id);
       prepare(target.id, canDeliver ? 'livrer' : 'deplacer'); focusExecute = keyboard;
     }
     renderContext();
+    renderGuide();
   }
-  function positionContext() {
-    const panel = el('context'); if (!selection || panel.hidden) return;
-    const anchor = view?.anchorFor(selection); if (!anchor) return;
-    const width = app.clientWidth; const height = app.clientHeight; const panelWidth = panel.offsetWidth; const panelHeight = panel.offsetHeight;
-    const clamp = (x: number, y: number) => ({ x: Math.max(12, Math.min(width - panelWidth - 12, x)), y: Math.max(118, Math.min(height - panelHeight - 138, y)) });
-    const candidates = [clamp(anchor.x + 28, anchor.y - 45), clamp(anchor.x - panelWidth - 28, anchor.y - 45), clamp(anchor.x - panelWidth / 2, anchor.y - panelHeight - 35), clamp(anchor.x - panelWidth / 2, anchor.y + 35), clamp(width - panelWidth - 16, anchor.y - 45), clamp(16, anchor.y - 45)];
-    const targets = [...app.querySelectorAll<HTMLElement>('.object-target:not([hidden])')].map(e => e.getBoundingClientRect());
-    const overlap = (p: { x: number; y: number }) => targets.reduce((sum, r) => sum + Math.max(0, Math.min(p.x + panelWidth, r.right) - Math.max(p.x, r.left)) * Math.max(0, Math.min(p.y + panelHeight, r.bottom) - Math.max(p.y, r.top)), 0);
-    candidates.sort((a, b) => overlap(a) - overlap(b));
-    const point = width < 600 ? clamp(12, height - panelHeight - 138) : candidates[0]!;
-    panel.style.left = `${point.x}px`; panel.style.top = `${point.y}px`;
-  }
+  function positionContext() { /* The context has its own column; it never covers the quay. */ }
   function renderContext() {
     const panel = el('context'); if (!frame || !selection) { panel.hidden = true; return; }
     panel.hidden = false; panel.replaceChildren();
@@ -65,6 +58,9 @@ export function createGameUi(app: HTMLElement) {
     const title = document.createElement('h2');
     title.textContent = selection.type === 'robot' ? robotName(selection.id) : selection.type === 'sommet' ? places[selection.id] ?? selection.id : selection.type === 'colis' ? parcels[selection.id] ?? selection.id : selection.id === 'porte' ? 'Porte A' : 'Passerelle';
     const close = button('×', () => { selection = null; view?.setSelection(null); panel.hidden = true; }); close.setAttribute('aria-label', 'Fermer la fiche'); header.append(title, close); panel.append(header);
+    const purpose = document.createElement('p'); purpose.className = 'object-purpose';
+    purpose.textContent = selection.type === 'sommet' ? placePurpose[selection.id] ?? '' : selection.type === 'robot' ? 'Ce robot transporte deux colis au maximum. Choisissez sa destination sur le quai ou ci-dessous.' : selection.type === 'equipement' && selection.id === 'passerelle' ? 'Abaissée : les robots traversent. Relevée : le ferry passe et les robots doivent attendre ou contourner.' : selection.type === 'equipement' ? placePurpose.A! : 'Ce colis doit être remis à son destinataire pour confirmer la livraison.';
+    panel.append(purpose);
     const property = selection.type === 'robot' ? { type: 'robot' as const, id: selection.id, champ: 'sommet' as const }
       : selection.type === 'colis' ? { type: 'colis' as const, id: selection.id, champ: 'localisation' as const }
         : { type: 'equipement' as const, id: selection.type === 'equipement' ? selection.id : selection.id === 'A' ? 'porte' : 'passerelle', champ: 'etat' as const };
@@ -77,13 +73,13 @@ export function createGameUi(app: HTMLElement) {
     if (selection.type === 'equipement' || (selection.type === 'sommet' && ['A', 'C', 'H'].includes(selection.id))) {
       const report = equipmentReport(frame.view, selection.id === 'passerelle' ? 'passerelle' : 'porte');
       const line = document.createElement('p'); line.className = 'context-status'; line.textContent = report.status === 'current' ? observationCaption(report) : `État inconnu · ${observationCaption(report)}`; panel.append(line);
-      panel.append(button('Observer depuis C', () => { robot = 'R2'; prepare('C', 'observer'); }));
+      panel.append(button('Envoyer R2 au poste d’observation', () => { robot = 'R2'; prepare('C', 'observer'); }));
     }
     if (robot && selection.type !== 'equipement') {
       const who = document.createElement('div'); who.className = 'mission-owner'; who.textContent = `${robotName(robot)}${mission ? ` → ${mission.intention.action === 'tournee' ? 'Tournée EVA' : places[mission.intention.destination] ?? mission.intention.destination}` : ''}`; panel.append(who);
       const cargo = knownFact(frame.view, { type: 'robot', id: robot, champ: 'chargement' })?.valeur;
       if (Array.isArray(cargo) && cargo.length) { const list = document.createElement('p'); list.className = 'cargo-list'; list.textContent = `▣ ${cargo.map(id => parcels[id] ?? id).join(' · ')}`; panel.append(list); }
-      if (expanded || mission) panel.append(missionCards(cards(), frame.niveau, updated => {
+      if (expanded) panel.append(missionCards(cards(), frame.niveau, updated => {
         cardsByRobot.set(robot!, updated);
         if (mission) send({ type: 'prepare', intention: { ...mission.intention, cartes: updated } });
         else renderContext();
@@ -95,7 +91,7 @@ export function createGameUi(app: HTMLElement) {
         if (mission.resultat?.statut === 'plan') {
           const summary = document.createElement('p'); summary.className = 'plan-summary';
           const steps = mission.resultat.plan.etapes.filter(s => s.impulsion > frame!.view.impulsion).length;
-          summary.textContent = `${steps} impulsion${steps > 1 ? 's' : ''} · ${mission.resultat.garantie === 'meilleurTrouve' ? 'Plan proposé' : 'Optimal selon les observations'}`; panel.append(summary);
+          summary.textContent = `${steps} tour${steps > 1 ? 's' : ''} prévu${steps > 1 ? 's' : ''} · Plan proposé selon les informations reçues. Une information ancienne peut encore se révéler fausse.`; panel.append(summary);
         }
         if (mission.motif || mission.resultat?.statut === 'refuse' || mission.resultat?.statut === 'incomplet') {
           const refusal = document.createElement('p'); refusal.className = 'refusal'; refusal.setAttribute('role', 'status');
@@ -106,19 +102,55 @@ export function createGameUi(app: HTMLElement) {
         if (['suspendue', 'refusee'].includes(mission.statut)) actions.append(button('Reprendre', () => send({ type: 'resume', robot: robot! })));
         if (frame.preparation) actions.append(button('Annuler', () => send({ type: 'cancel' }))); panel.append(actions);
       }
-      if (!expanded && !mission) panel.append(button('Composer une mission', () => { expanded = true; renderContext(); }));
+      if (!expanded) panel.append(button('Régler la mission', () => { expanded = true; renderContext(); }));
       else {
         panel.append(button('Confier une tournée à EVA', () => prepare('O', 'tournee')));
         if (selection.type === 'robot') panel.append(button('Rejoindre le dépôt', () => prepare('O', 'deplacer')));
       }
+      if (selection.type === 'robot' && !expanded) {
+        const destinations = document.createElement('div'); destinations.className = 'destination-choices';
+        for (const id of ['Q', 'P', 'F', 'O']) destinations.append(button(places[id]!, () => select({ type: 'sommet', id })));
+        panel.append(destinations);
+      }
     }
     requestAnimationFrame(positionContext);
   }
+  function renderGuide() {
+    if (!frame) return;
+    const guide = guideFor(frame, robot, guidedChallenge);
+    el('guide-progress').textContent = guide.progress; el('guide-title').textContent = guide.title; el('guide-body').textContent = guide.body;
+    const action = el<HTMLButtonElement>('guide-action'); action.hidden = !guide.action;
+    if (guide.action) {
+      const next = guide.action; action.textContent = next.label; action.disabled = busy || el('quay').dataset.animating === 'true';
+      action.onclick = () => {
+        if (next.objectives) { el('show-contract').click(); return; }
+        if (next.execute) { el('advance').click(); return; }
+        if (next.robot) select({ type: 'robot', id: next.robot });
+        if (next.observer && next.destination) prepare(next.destination, 'observer');
+        else if (next.destination) select({ type: 'sommet', id: next.destination });
+      };
+    }
+    app.querySelectorAll('.suggested').forEach(e => e.classList.remove('suggested'));
+    if (guide.highlight) {
+      if (guide.highlight === 'advance') el('advance').classList.add('suggested');
+      else app.querySelector(`[data-object="${guide.highlight}"]`)?.classList.add('suggested');
+    }
+  }
+  function updateExecution() {
+    if (!frame) return;
+    const active = frame.missions.some(m => ['active', 'preparee'].includes(m.statut));
+    const moving = el('quay').dataset.animating === 'true';
+    const firstChoice = frame.catalogue.situation === 'atelier' && frame.view.impulsion === 0 && !active && !frame.preparation;
+    el<HTMLButtonElement>('advance').disabled = busy || moving || frame.fin || firstChoice;
+    el('advance').textContent = moving ? 'Déplacement…' : active ? 'Exécuter · 1 tour' : firstChoice ? 'Choisir une destination' : 'Attendre · 1 tour';
+    el('execution-hint').textContent = frame.fin ? 'Cet essai est terminé.' : active ? 'Un tronçon par robot, puis retour en pause.' : firstChoice ? 'Choisissez un robot, puis une destination.' : 'Aucun trajet engagé. Attendre fait évoluer le monde.';
+    renderGuide();
+  }
   function renderFrame() {
     if (!frame) return;
-    el('pulse').textContent = `IMPULSION ${String(frame.view.impulsion).padStart(2, '0')}`;
-    el('situation-title').textContent = frame.catalogue.situation === 'atelier' ? 'Livrer à l’atelier.' : frame.defi ? 'Tenir jusqu’au matin.' : 'Le dernier passage.';
-    el('objective').textContent = frame.catalogue.situation === 'atelier' ? '▣ Pièce d’atelier' : frame.defi ? 'Pompage · Ferry · Fournitures' : '▣ Livrer la batterie · Entraînement';
+    el('pulse').textContent = `Tour ${frame.view.impulsion}${frame.catalogue.situation === 'atelier' ? '' : ' / 16'}`;
+    el('situation-title').textContent = frame.catalogue.situation === 'atelier' ? 'Apprendre à livrer' : frame.defi ? 'Défi · Tenir jusqu’au matin' : 'Entraînement · La porte inconnue';
+    el('objective').textContent = frame.catalogue.situation === 'atelier' ? 'Votre but : remettre les colis aux bons destinataires.' : frame.defi ? 'Livrer à temps et garder les services en activité.' : 'Observez la porte, puis apportez la batterie à la pompe.';
     el('preparation-status').textContent = frame.fin ? 'POSTE TERMINÉ' : 'EN PRÉPARATION';
     el('cancel').hidden = !frame.preparation;
     el<HTMLButtonElement>('advance').disabled = busy || frame.fin;
@@ -127,7 +159,7 @@ export function createGameUi(app: HTMLElement) {
       const card = button('', () => select({ type: 'robot', id: r.robot }), `robot-card ${r.age > 0 ? 'historical' : ''}`); card.setAttribute('aria-label', `Sélectionner ${robotName(r.robot)}`);
       const icon = document.createElement('div'); icon.className = 'robot-icon'; icon.textContent = '▣'; icon.setAttribute('aria-hidden', 'true');
       const name = document.createElement('strong'); name.textContent = robotName(r.robot);
-      const location = document.createElement('span'); location.textContent = `${places[r.sommet] ?? r.sommet} · t${r.capture.impulsion}`;
+      const location = document.createElement('span'); location.textContent = `${places[r.sommet] ?? r.sommet} · tour ${r.capture.impulsion}`;
       const text = document.createElement('div'); text.append(name, location); card.append(icon, text); el('robot-cards').append(card);
     }
     const receipts = frame.catalogue.colis.flatMap(c => {
@@ -139,19 +171,26 @@ export function createGameUi(app: HTMLElement) {
     if (latest) {
       el('receipt').replaceChildren();
       const title = document.createElement('strong'); title.textContent = `✓ Livraison reçue · ${places[latest.c.destination] ?? latest.c.destination}`;
-      const detail = document.createElement('span'); detail.textContent = `${parcels[latest.c.id] ?? latest.c.id} · Reçu t${latest.at} · ${provenance(latest.fact, frame.view.impulsion)}`;
+      const detail = document.createElement('span'); detail.textContent = `${parcels[latest.c.id] ?? latest.c.id} · Reçu au tour ${latest.at} · ${provenance(latest.fact, frame.view.impulsion)}`;
       el('receipt').append(title, detail); el('receipt').dataset.colis = latest.c.id;
     }
     renderContext();
     challengeUi.render(frame);
+    updateExecution();
     if (focusExecute) { el('advance').focus(); focusExecute = false; }
     app.dataset.ready = 'true'; app.dataset.niveau = String(frame.niveau);
   }
   worker.onmessage = (event: MessageEvent<SessionResponse>) => {
-    busy = false;
+    busy = false; app.dataset.busy = 'false';
     if (event.data.type === 'error') { el('error').hidden = false; el('error').textContent = event.data.message; el<HTMLButtonElement>('advance').disabled = false; return; }
-    const previousTime = frame?.view.impulsion;
+    const previous = frame; const previousTime = frame?.view.impulsion;
     frame = freeze(event.data); situation = frame.catalogue.situation;
+    if (previous && frame.view.impulsion > previous.view.impulsion) {
+      const moves = robotReports(frame.view).filter(r => r.age === 0).flatMap(r => { const before = robotReports(previous.view).find(b => b.robot === r.robot && b.age === 0); return before && before.sommet !== r.sommet ? [`${robotName(r.robot)} : ${places[before.sommet]} → ${places[r.sommet]}`] : []; });
+      const refusals = frame.view.constats.filter(c => c.impulsion === frame!.view.impulsion);
+      el('feedback-title').textContent = refusals.length ? 'Une commande a été refusée.' : moves.length ? moves.join(' · ') : `Tour ${frame.view.impulsion} exécuté.`;
+      el('feedback-detail').textContent = refusals.length ? `${moves.length ? moves.join(' · ') + '. ' : ''}Le tour a été consommé malgré le refus. Sélectionnez la mission de ${refusals.map(c => robotName(c.robot)).join(', ')} pour la reprendre.` : moves.length ? 'Déplacement confirmé par les robots. La livraison est confirmée séparément par le destinataire.' : 'Aucun déplacement confirmé. Le temps a avancé et les événements programmés ont été résolus.';
+    }
     if (frame.view.impulsion !== previousTime && frame.missions.some(m => m.intention.robot === robot && m.statut === 'terminee')) selection = null;
     try {
       if (view) view.update(frame.view); else view = createQuayView(el('quay'), frame.view);
@@ -161,6 +200,7 @@ export function createGameUi(app: HTMLElement) {
   worker.onerror = () => { busy = false; el('loading').hidden = true; el('error').hidden = false; el('error').textContent = 'Le poste n’a pas pu démarrer.'; };
   el('quay').addEventListener('quay-select', event => select((event as CustomEvent<QuaySelection>).detail));
   el('quay').addEventListener('quay-frame', positionContext);
+  el('quay').addEventListener('quay-motion-end', updateExecution);
   el('frame-quai').onclick = () => { view?.setFraming('quai'); el('frame-quai').setAttribute('aria-pressed', 'true'); el('frame-coursive').setAttribute('aria-pressed', 'false'); };
   el('frame-coursive').onclick = () => { view?.setFraming('coursive'); el('frame-quai').setAttribute('aria-pressed', 'false'); el('frame-coursive').setAttribute('aria-pressed', 'true'); };
   el('zoom-in').onclick = () => { zoom = Math.min(1.7, zoom + 0.15); view?.setZoom(zoom); };
@@ -169,13 +209,21 @@ export function createGameUi(app: HTMLElement) {
   el('advance').onclick = () => { if (!busy && !frame?.fin) send({ type: 'advance' }); };
   el('cancel').onclick = () => send({ type: 'cancel' });
   function restart(next: Situation) {
+    guidedChallenge = false;
+    for (const id of ['modes', 'help']) el<HTMLDialogElement>(id).close();
     challengeUi.reset(next === 'defi');
     selection = null; robot = null; expanded = false; focusExecute = false; cardsByRobot.clear(); view?.dispose(); view = undefined;
-    zoom = 1; cutaway = false; el('frame-quai').setAttribute('aria-pressed', 'true'); el('frame-coursive').setAttribute('aria-pressed', 'false'); el('cutaway').setAttribute('aria-pressed', 'false');
+    zoom = 1; cutaway = true; el('frame-quai').setAttribute('aria-pressed', 'false'); el('frame-coursive').setAttribute('aria-pressed', 'true'); el('cutaway').setAttribute('aria-pressed', 'true');
+    el('feedback-title').textContent = 'Le monde est en pause.'; el('feedback-detail').textContent = 'Préparez une mission avant d’exécuter un tour.';
     el('receipt').hidden = true; el('context').hidden = true; delete app.dataset.ready; send({ type: 'init', situation: next });
   }
   el('scenario-intro').onclick = () => restart('atelier'); el('scenario-challenge').onclick = () => restart('dernierPassage'); el('restart').onclick = () => restart(situation);
   el('scenario-defi').onclick = () => restart('defi');
+  el('guide-defi').onclick = () => { guidedChallenge = true; challengeUi.training(); renderGuide(); };
+  for (const [button, dialog, close] of [['show-modes', 'modes', 'close-modes'], ['show-help', 'help', 'close-help']] as const) {
+    el(button).onclick = () => { selection = null; el('context').hidden = true; el<HTMLDialogElement>(dialog).showModal(); };
+    el(close).onclick = () => el<HTMLDialogElement>(dialog).close();
+  }
   const keyboard = (event: KeyboardEvent) => {
     if (app.querySelector('dialog[open]')) return;
     if (event.ctrlKey || event.metaKey || event.altKey) return;

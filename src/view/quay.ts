@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { Position3D, VueJoueur } from '../sim/types';
 import { cargoReports, equipmentReport, observationCaption, parcelReports, robotReports } from './presentation';
+import { placeNames } from './names';
 
 const S = 2.2;
 const C = { concrete: 0x34434a, steel: 0x213138, dark: 0x111f27, cyan: 0x94eee0, amber: 0xe9b96c, pale: 0xbacbce, rust: 0x86533a };
@@ -41,7 +42,7 @@ export function createQuayView(host: HTMLElement, initial: VueJoueur): QuayView 
   const transientLabels: { element: HTMLElement; point: THREE.Vector3 }[] = [];
   const picks: THREE.Object3D[] = [];
   let selected: QuaySelection | null = null; let animation = 0;
-  let current = initial; let framing: 'quai' | 'coursive' = 'quai'; let zoom = 1; let cutaway = false;
+  let current = initial; let framing: 'quai' | 'coursive' = 'coursive'; let zoom = 1; let cutaway = true;
 
   function material(color: number, ghost = false, emissive = false) {
     const key = `${color}/${ghost}/${emissive}`;
@@ -202,20 +203,23 @@ export function createQuayView(host: HTMLElement, initial: VueJoueur): QuayView 
   for (const v of current.geometrie.sommets) {
     const point = vec(v.position); const ring = new THREE.Mesh(new THREE.RingGeometry(0.23, 0.3, 24), new THREE.MeshBasicMaterial({ color: C.pale, transparent: true, opacity: 0.42, side: THREE.DoubleSide }));
     ring.rotation.x = -Math.PI / 2; ring.position.copy(point).add(new THREE.Vector3(0, 0.13, 0)); scene.add(ring);
-    const names: Record<string, string> = { Q: 'Atelier', F: 'Infirmerie', O: 'Dépôt', T: 'Transfert', C: 'Coursive', P: 'Pompe' };
-    targetLabel(names[v.id] ?? v.id, point.clone().add(new THREE.Vector3(0, v.id === 'Q' ? 1.6 : 0.3, v.id === 'P' ? 1 : 0)), { type: 'sommet', id: v.id });
+    if (['Q', 'F', 'O', 'T', 'C', 'P'].includes(v.id)) targetLabel(placeNames[v.id]!, point.clone().add(new THREE.Vector3(0, 0.1, 0)), { type: 'sommet', id: v.id });
   }
   const doorLabel = htmlLabel('', gate.clone().add(new THREE.Vector3(0.2, 4.1, 0)), 'equipment-label door-label'); doorLabel.dataset.testid = 'door-label';
   const bridgeLabel = htmlLabel('', p.clone().add(gate).multiplyScalar(0.5).add(new THREE.Vector3(0, 0.6, 0.4)), 'equipment-label bridge-label');
   const sourceLabel = htmlLabel('C · OBSERVATION EN HAUTEUR', c.clone().add(new THREE.Vector3(0.2, 1.25, 0)), 'source-label'); sourceLabel.dataset.testid = 'coursive-label';
+  doorLabel.setAttribute('role', 'button'); doorLabel.tabIndex = 0; doorLabel.setAttribute('aria-label', 'Inspecter la porte du hangar');
+  doorLabel.onclick = () => select({ type: 'equipement', id: 'porte' });
+  doorLabel.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select({ type: 'equipement', id: 'porte' }); } };
 
   function clearDynamic() {
     cancelAnimationFrame(animation); animation = 0; host.dataset.animating = 'false';
     transientLabels.forEach(l => l.element.remove()); transientLabels.length = 0;
-    dynamic.traverse(object => { if (object instanceof THREE.Mesh) object.geometry.dispose(); if (object instanceof THREE.Line) { object.geometry.dispose(); const mats = Array.isArray(object.material) ? object.material : [object.material]; mats.forEach(m => m.dispose()); } }); dynamic.clear();
+    dynamic.traverse(object => { if (object instanceof THREE.Mesh) { object.geometry.dispose(); if (object.userData.ownMaterial) (object.material as THREE.Material).dispose(); } if (object instanceof THREE.Line) { object.geometry.dispose(); const mats = Array.isArray(object.material) ? object.material : [object.material]; mats.forEach(m => m.dispose()); } }); dynamic.clear();
   }
   function robot(id: string, position: THREE.Vector3, dated: boolean, cargoCount: number) {
     const group = new THREE.Group(); group.position.copy(position); group.name = `robot:${id}:${dated ? 'dated' : 'current'}`; dynamic.add(group);
+    group.scale.setScalar(1.35);
     group.userData.selection = { type: 'robot', id }; group.userData.current = !dated;
     const label = targetLabel(id === 'R' ? 'R1' : id, position.clone().add(new THREE.Vector3(0, 1.8, 0)), { type: 'robot', id }, true);
     label.classList.toggle('dated-object', dated); label.classList.toggle('selected', selected?.type === 'robot' && selected.id === id);
@@ -229,6 +233,8 @@ export function createQuayView(host: HTMLElement, initial: VueJoueur): QuayView 
     }
     for (let i = 0; i < cargoCount; i++) box(group, [0.4, 0.24, 0.32], [0, 1.13 + i * 0.26, -0.04], C.pale, dated);
     const halo = new THREE.Mesh(new THREE.TorusGeometry(0.7, 0.027, 6, 36), material(dated ? C.amber : C.cyan, dated, !dated)); halo.rotation.x = Math.PI / 2; halo.position.y = 0.15; group.add(halo);
+    // Received robots remain legible through scenery; this never creates a hidden robot.
+    group.traverse(object => { if (object instanceof THREE.Mesh) { object.material = (object.material as THREE.Material).clone(); (object.material as THREE.Material).depthTest = false; object.userData.ownMaterial = true; object.renderOrder = 10; } });
   }
   function drawReceived() {
     clearDynamic();
@@ -274,6 +280,12 @@ export function createQuayView(host: HTMLElement, initial: VueJoueur): QuayView 
       if (points.length > 1) {
         const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineDashedMaterial({ color: C.cyan, dashSize: 0.22, gapSize: 0.12, depthTest: false }));
         line.computeLineDistances(); line.renderOrder = 5; dynamic.add(line);
+        for (let i = 1; i < points.length; i++) {
+          const a = points[i - 1]!; const b = points[i]!; if (a.distanceTo(b) < 0.1) continue;
+          const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.23, 0.65, 3), new THREE.MeshBasicMaterial({ color: C.cyan, depthTest: false }));
+          arrow.position.copy(a).lerp(b, 0.7); arrow.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+          arrow.renderOrder = 6; arrow.userData.ownMaterial = true; dynamic.add(arrow);
+        }
       }
     }
     for (const label of labels) if (label.element.dataset.object) label.element.classList.toggle('selected', label.element.dataset.object === `${selected?.type}:${selected?.id}`);
@@ -284,10 +296,19 @@ export function createQuayView(host: HTMLElement, initial: VueJoueur): QuayView 
   function render() {
     renderer.render(scene, camera);
     const bounds = host.getBoundingClientRect();
-    for (const label of [...labels, ...transientLabels]) {
+    const occupied: { x: number; y: number; w: number; h: number }[] = [];
+    for (const label of [...transientLabels, ...labels]) {
       const screen = label.point.clone().project(camera);
-      label.element.style.left = `${(screen.x * 0.5 + 0.5) * bounds.width}px`;
-      label.element.style.top = `${(-screen.y * 0.5 + 0.5) * bounds.height}px`;
+      let x = (screen.x * 0.5 + 0.5) * bounds.width; let y = (-screen.y * 0.5 + 0.5) * bounds.height;
+      if (label.element.dataset.object) {
+        const w = label.element.offsetWidth || 70; const h = label.element.offsetHeight || 44;
+        const offsets = label.element.dataset.object.startsWith('robot:') ? [[0, -28], [60, -15], [-60, -15], [0, -72]] : [[0, 34], [65, 28], [-65, 28], [0, 82], [90, 70], [-90, 70]];
+        const candidates = offsets.map(([dx, dy]) => ({ x: Math.max(w / 2 + 8, Math.min(bounds.width - w / 2 - 8, x + dx!)), y: Math.max(h / 2 + 8, Math.min(bounds.height - h / 2 - 82, y + dy!)), w, h }));
+        const overlap = (a: typeof occupied[number]) => occupied.reduce((sum, b) => sum + Math.max(0, (a.w + b.w) / 2 + 6 - Math.abs(a.x - b.x)) * Math.max(0, (a.h + b.h) / 2 + 6 - Math.abs(a.y - b.y)), 0);
+        candidates.sort((a, b) => overlap(a) - overlap(b)); const chosen = candidates[0]!; occupied.push(chosen); x = chosen.x; y = chosen.y;
+      }
+      label.element.style.left = `${x}px`;
+      label.element.style.top = `${y}px`;
       label.element.hidden = Math.abs(screen.x) > 1 || Math.abs(screen.y) > 1 || screen.z > 1;
     }
     host.dispatchEvent(new Event('quay-frame'));
@@ -299,13 +320,13 @@ export function createQuayView(host: HTMLElement, initial: VueJoueur): QuayView 
     const aspect = width / Math.max(1, height); const span = aspect < 0.75 ? 27 : aspect < 1 ? 22 / aspect : 17;
     camera.left = -span * aspect; camera.right = span * aspect; camera.top = span; camera.bottom = -span;
     camera.zoom = zoom;
-    camera.position.fromArray(framing === 'quai' ? [-26, 29, 26] : [25, 34, 26]);
+    camera.position.fromArray(framing === 'quai' ? [-26, 29, 26] : [18, 52, 22]);
     if (aspect < 0.75) camera.lookAt(...(framing === 'quai' ? [3, 1, 2] as [number, number, number] : [-2, 3, -1] as [number, number, number]));
     else camera.lookAt(0, 2, -0.5);
     camera.updateProjectionMatrix(); render();
   }
   const observer = new ResizeObserver(resize); observer.observe(host);
-  resize(); drawReceived();
+  walls.forEach(wall => { wall.visible = !cutaway; }); resize(); drawReceived();
   return {
     update(view) {
       const previous = current; current = view; drawReceived();
@@ -318,8 +339,12 @@ export function createQuayView(host: HTMLElement, initial: VueJoueur): QuayView 
       }
       if (moves.length) {
         host.dataset.animating = 'true'; const start = performance.now();
-        const animate = (time: number) => { const fraction = Math.min(1, (time - start) / 450); moves.forEach(m => m.object.position.lerpVectors(m.from, m.to, fraction)); render();
-          if (fraction < 1) animation = requestAnimationFrame(animate); else { animation = 0; host.dataset.animating = 'false'; } };
+        const animate = (time: number) => { const fraction = Math.min(1, (time - start) / 1100); moves.forEach(m => {
+          m.object.position.lerpVectors(m.from, m.to, fraction);
+          const label = transientLabels.find(l => l.element.dataset.object === `robot:${m.object.userData.selection.id}`);
+          if (label) label.point.copy(m.object.position).add(new THREE.Vector3(0, 1.8, 0));
+        }); render();
+          if (fraction < 1) animation = requestAnimationFrame(animate); else { animation = 0; host.dataset.animating = 'false'; host.dispatchEvent(new Event('quay-motion-end')); } };
         animation = requestAnimationFrame(animate);
       }
     },
