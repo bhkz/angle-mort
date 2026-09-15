@@ -8,6 +8,8 @@ Suivi P3 : le planificateur de transport et les six optima de G §4 sont implém
 
 Suivi P4 : la couche d'observation du §4 et la projection des canaux joueur sont implémentées. Les conventions géométriques, capteurs, âge, provenance et limites de PT-09/10/11 sont précisées dans [le contrat d'observation P4](src/sim/README.md#contrat-dobservation-p4). Les tests comparent les sérialisations du Dernier passage et vérifient la non-fuite par propriétés ; l'intégration au futur rendu reste à tester lors de sa création.
 
+Suivi P5 : le [rendu Three.js du Quai 17](src/view/README.md) consomme uniquement la vue joueur transmise par un worker. La géométrie publique inclut les boîtes d'occlusion statiques. Les tests navigateur vérifient la non-fuite visuelle après cadrage, zoom et coupe, les observations datées et les impulsions de découverte. La capture à t4 est disponible dans `artifacts/quai17-t4.png`.
+
 ## 1. Autorité, périmètre et conventions
 
 Sources actives, avec abréviations utilisées dans ce document :

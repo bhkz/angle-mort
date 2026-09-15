@@ -6,6 +6,7 @@ export function observationKey(source: string, property: ProprieteObservee): str
 }
 export interface CatalogueJoueur {
   readonly sommets: readonly Sommet[];
+  readonly obstacles: VueJoueur['geometrie']['obstacles'];
   readonly aretes: readonly Readonly<{ id: string; extremites: readonly [string, string]; coutEnergie: number; controlePar: readonly string[] }>[];
   readonly sources: readonly Readonly<{ id: string; origineCommune: string | null; proprietes: readonly ProprieteObservee[] }>[];
 }
@@ -19,6 +20,7 @@ export interface InformationRecue {
 export function createPlayerCatalogue(s: Scenario): CatalogueJoueur {
   return snapshot({
     sommets: [...s.graphe.sommets].sort((a, b) => compare(a.id, b.id)),
+    obstacles: (s.obstaclesObservation ?? []).filter(o => o.actifSi.length === 0).map(o => ({ id: o.id, min: o.min, max: o.max })).sort((a, b) => compare(a.id, b.id)),
     aretes: s.graphe.aretes.map(e => ({ id: e.id, extremites: e.extremites, coutEnergie: e.coutEnergie, controlePar: [...e.controlePar].sort(compare) })).sort((a, b) => compare(a.id, b.id)),
     sources: s.sources.filter(source => source.destinataires.includes('joueur')).map(source => ({
       id: source.id, origineCommune: source.origineCommune, proprietes: source.couverture.map(c => c.propriete),
@@ -71,7 +73,7 @@ export function projectPlayerView(catalogue: CatalogueJoueur, information: Infor
   return snapshot({
     impulsion: information.impulsion,
     sources: catalogue.sources.map(s => ({ id: s.id, origineCommune: s.origineCommune })),
-    geometrie: { sommets: catalogue.sommets, aretes: catalogue.aretes.map(e => ({ id: e.id, extremites: e.extremites })) },
+    geometrie: { sommets: catalogue.sommets, aretes: catalogue.aretes.map(e => ({ id: e.id, extremites: e.extremites })), obstacles: catalogue.obstacles },
     observations,
     constats: information.constats.filter(c => sources.has(c.source) && c.impulsion <= information.impulsion),
     franchissements: information.franchissementsObserves.filter(c => sources.has(c.source) && c.impulsion <= information.impulsion),

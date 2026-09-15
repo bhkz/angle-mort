@@ -254,6 +254,7 @@ export interface VueJoueur {
   readonly geometrie: Readonly<{
     sommets: readonly Sommet[];
     aretes: readonly Readonly<{ id: Id; extremites: readonly [Id, Id] }>[];
+    obstacles: readonly Readonly<{ id: Id; min: Position3D; max: Position3D }>[];
   }>;
   readonly observations: readonly Observation[];
   readonly constats: readonly ConstatLocal[];
