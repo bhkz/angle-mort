@@ -11,8 +11,8 @@ test('le guide explique puis fait jouer deux livraisons, avec mouvement visible 
   await page.locator('#guide-action').click(); await expect(page.locator('#guide')).toContainText('1 tour prévu');
   await expect(page.locator('#quay')).toHaveAttribute('data-impulsion', '0');
   await expect(page.locator('.plan-summary')).not.toContainText(/optimal/i);
-  const scene = await page.locator('#quay').boundingBox(); const context = await page.locator('#context').boundingBox();
-  expect(scene!.x + scene!.width).toBeLessThanOrEqual(context!.x);
+  const scene = await page.locator('#quay').boundingBox();
+  expect(scene).toEqual({ x: 0, y: 0, width: 1024, height: 768 });
   await page.screenshot({ path: 'artifacts/didacticiel-trajet.png' });
   await page.locator('#guide-action').click();
   await expect(page.locator('#quay')).toHaveAttribute('data-animating', 'true');

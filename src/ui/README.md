@@ -11,7 +11,7 @@ Le premier bouton d'exécution reste désactivé tant qu'aucune destination n'es
 ## Lisibilité
 
 - Les destinations portent des noms usuels ; les lettres de sommets internes restent dans les données, pas dans les boutons. Chaque fiche explique la fonction du lieu.
-- Sur ordinateur, guide et fiche ont une colonne séparée du quai. Sur téléphone, les blocs se suivent dans une page défilante avec commandes persistantes. Les cibles restent au moins de 44 pixels CSS.
+- Le quai occupe tout l'écran, sans bandeau haut ou bas. Guide, fiches et commandes flottent au-dessus de la scène. Sur téléphone, le fond 3D reste plein écran pendant le défilement des blocs. Les cibles restent au moins de 44 pixels CSS.
 - Vue haute et hangar masqué au départ. Les paramètres sont regroupés sous « Affichage du quai », avec leur effet expliqué. Ils ne changent aucune observation.
 - Robots agrandis, visibles devant le décor lorsqu'une observation autorise leur silhouette ; les observations anciennes restent hachurées. Aucun objet inconnu n'est créé pour assurer cette visibilité.
 - Les positions reçues sont animées pendant 1,1 seconde, et leur étiquette suit le mouvement. La préférence système de réduction des animations est respectée. Le prochain tour est indisponible pendant cette présentation ; elle n'applique aucune règle et ne fait pas avancer le temps.
